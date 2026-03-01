@@ -1,0 +1,238 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-panel: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-border-bright: #cbd5e1;
+  --color-accent: #2563eb;
+  --color-accent-dim: #1d4ed8;
+  --color-accent-light: #60a5fa;
+  --color-text: #0f172a;
+  --color-text-dim: #64748b;
+  --color-text-muted: #94a3b8;
+  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+}
+.dark {
+  --color-bg: #0a0e17;
+  --color-surface: #0f1629;
+  --color-panel: #131b2e;
+  --color-border: #1e293b;
+  --color-border-bright: #2a3a52;
+  --color-accent: #2563eb;
+  --color-accent-dim: #1d4ed8;
+  --color-accent-light: #60a5fa;
+  --color-text: #e2e8f0;
+  --color-text-dim: #64748b;
+  --color-text-muted: #475569;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: var(--font-mono);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  #root {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-bg);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-bright);
+    border-radius: 3px;
+    transition: background 0.2s;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-accent-dim);
+  }
+
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-bright) var(--color-bg);
+  }
+
+  /* Selection */
+  ::selection {
+    background: rgba(37, 99, 235, 0.25);
+    color: #fff;
+  }
+}
+
+@layer components {
+  /* Tactical panel base */
+  .panel {
+    @apply backdrop-blur-md border border-parcl-border
+           rounded-lg shadow-tactical;
+    background: color-mix(in srgb, var(--color-panel) 90%, transparent);
+  }
+
+  /* Light mode: fully opaque panels so dark globe doesn't bleed through */
+  :root:not(.dark) .panel {
+    background: var(--color-panel);
+  }
+
+  .panel-header {
+    @apply px-4 py-3 border-b border-parcl-border flex items-center gap-2
+           text-xs font-semibold uppercase tracking-widest text-parcl-text-dim;
+  }
+
+  .panel-body {
+    @apply p-4;
+  }
+
+  /* Tactical button */
+  .btn-tactical {
+    @apply px-3 py-1.5 text-xs font-medium uppercase tracking-wider
+           border border-parcl-border rounded
+           text-parcl-text-dim
+           hover:bg-parcl-border hover:text-parcl-text
+           hover:border-parcl-border-bright
+           transition-all duration-200 cursor-pointer
+           active:scale-95;
+    background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  }
+
+  .btn-tactical-blue {
+    @apply btn-tactical border-parcl-accent-dim text-parcl-accent
+           hover:border-parcl-accent hover:shadow-glow-blue;
+  }
+  .btn-tactical-blue:hover {
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  }
+
+  .btn-tactical-red {
+    @apply btn-tactical border-parcl-red-dim text-parcl-red
+           hover:border-parcl-red hover:shadow-glow-red;
+  }
+  .btn-tactical-red:hover {
+    background: color-mix(in srgb, #ef4444 10%, transparent);
+  }
+
+  /* Glow text */
+  .text-glow-blue {
+    text-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+  }
+
+  .text-glow-green {
+    text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+  }
+
+  .text-glow-red {
+    text-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+  }
+
+  .text-glow-amber {
+    text-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 text-[10px] font-semibold
+           uppercase tracking-wider rounded-full;
+  }
+
+  .badge-blue {
+    @apply badge text-parcl-accent;
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  }
+
+  .badge-green {
+    @apply badge text-parcl-green;
+    background: rgba(74, 222, 128, 0.1);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+  }
+
+  .badge-red {
+    @apply badge text-parcl-red;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .badge-amber {
+    @apply badge text-parcl-amber;
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+  }
+
+  /* Pulse ring animation */
+  .pulse-ring {
+    @apply absolute inset-0 rounded-full;
+    animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(1);
+      opacity: 0.8;
+    }
+    100% {
+      transform: scale(2.5);
+      opacity: 0;
+    }
+  }
+}
+
+@layer utilities {
+  /* Light mode: force opaque backgrounds on panels over the dark globe */
+  :root:not(.dark) .bg-parcl-panel\/95 {
+    background-color: var(--color-panel) !important;
+  }
+  :root:not(.dark) .bg-parcl-surface {
+    background-color: var(--color-surface) !important;
+  }
+  :root:not(.dark) .bg-parcl-bg {
+    background-color: var(--color-bg) !important;
+  }
+
+  /* Cesium widget overrides */
+  .cesium-viewer .cesium-widget-credits,
+  .cesium-viewer .cesium-viewer-toolbar,
+  .cesium-viewer .cesium-viewer-animationContainer,
+  .cesium-viewer .cesium-viewer-timelineContainer,
+  .cesium-viewer .cesium-viewer-bottom,
+  .cesium-viewer .cesium-viewer-fullscreenContainer,
+  .cesium-viewer .cesium-viewer-vrContainer,
+  .cesium-viewer .cesium-viewer-geocoderContainer,
+  .cesium-viewer .cesium-viewer-selectionIndicatorContainer,
+  .cesium-viewer .cesium-viewer-infoBoxContainer {
+    display: none !important;
+  }
+
+  .cesium-viewer .cesium-viewer-cesiumWidgetContainer {
+    position: absolute;
+    inset: 0;
+  }
+}

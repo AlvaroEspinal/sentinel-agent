@@ -1,0 +1,36 @@
+# ── Environment & Secrets ──
+.env
+.env.local
+.env.*.local
+
+# ── Dependencies ──
+node_modules/
+frontend/node_modules/
+
+# ── Python ──
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# ── Build Artifacts ──
+frontend/dist/
+frontend/build/
+*.tsbuildinfo
+
+# ── Data & Caches ──
+backend/data_cache/
+*.sqlite3
+
+# ── IDE & OS ──
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── Claude Code ──
+.claude/

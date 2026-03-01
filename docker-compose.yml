@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  # ── Backend: FastAPI + 6-Agent Pipeline ──
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - BACKEND_HOST=0.0.0.0
+      - BACKEND_PORT=8000
+      - FRONTEND_URL=http://localhost:5173
+    volumes:
+      - ./backend:/app
+      - backend_data:/app/data_cache
+      - audit_reports:/app/audit_reports
+      - chroma_data:/app/chroma_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Frontend: React + CesiumJS 3D Globe ──
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000/ws
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/src:/app/src
+
+volumes:
+  backend_data:
+  audit_reports:
+  chroma_data:

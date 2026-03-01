@@ -1,0 +1,24 @@
+fastapi>=0.100.0
+uvicorn[standard]>=0.25.0
+websockets>=12.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+httpx>=0.25.0
+aiohttp>=3.9.0
+
+# Data & ML
+pandas>=1.5.0
+numpy>=1.24.0
+yfinance>=0.2.30
+scipy>=1.10.0
+
+# Compliance & PDF
+cryptography>=41.0.0
+reportlab>=4.0.0
+
+# Geospatial
+geopy>=2.3.0
+
+# Utils
+apscheduler>=3.10.0
+loguru>=0.7.0
