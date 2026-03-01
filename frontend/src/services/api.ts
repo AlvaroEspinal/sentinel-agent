@@ -271,8 +271,13 @@ export interface ParcelInfo {
   last_sale_price: number | null;
   building_value: number | null;
   land_value: number | null;
+  total_value: number | null;
   use_code: string | null;
   lot_size: number | null;
+  lot_size_acres: number | null;
+  year_built: number | null;
+  building_area_sqft: number | null;
+  fiscal_year: string | null;
   geometry: unknown | null;
 }
 
@@ -294,7 +299,10 @@ export interface ZoningInfo {
   allowed_uses: string[];
   description: string | null;
   min_lot_size: number | null;
+  min_lot_size_sqft: number | null;
+  max_height_ft: number | null;
   max_density: string | null;
+  jurisdiction: string | null;
 }
 
 export async function getZoning(

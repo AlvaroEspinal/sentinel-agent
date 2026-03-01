@@ -47,8 +47,8 @@ const TABS: { id: TabId; label: string; icon: React.FC<{ className?: string }> }
 
 interface PropertySource {
   address: string;
-  city: string;
-  state?: string;
+  city: string | null;
+  state?: string | null;
   latitude: number;
   longitude: number;
 }
