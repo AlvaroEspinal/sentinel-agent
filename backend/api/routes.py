@@ -1941,8 +1941,8 @@ async def delete_agent(request: Request, agent_id: str):
 
 # ─── Town Intelligence Endpoints ─────────────────────────────────────────────
 
-@router.get("/towns")
-async def list_towns(request: Request):
+@router.get("/target-towns")
+async def list_target_towns(request: Request):
     """List all target towns with basic config info."""
     from scrapers.connectors.town_config import get_all_towns
 

@@ -451,7 +451,7 @@ export async function getTargetTowns(): Promise<{
   }>;
   total: number;
 }> {
-  const res = await fetch(`${API_BASE}/api/towns`);
+  const res = await fetch(`${API_BASE}/api/target-towns`);
   return res.json();
 }
 
