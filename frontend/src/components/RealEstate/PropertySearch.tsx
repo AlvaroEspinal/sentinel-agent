@@ -210,7 +210,7 @@ const PropertySearch: React.FC = () => {
                     : "---"}
                 </div>
                 <div className="col-span-1 text-right text-slate-400 text-xs">
-                  {parcel.lot_size_acres ? `${parcel.lot_size_acres}ac` : "---"}
+                  {parcel.lot_size_acres ? `${Number(parcel.lot_size_acres).toFixed(2)}ac` : "---"}
                 </div>
                 <div className="col-span-1 text-right text-slate-400 text-xs">
                   {parcel.year_built || "---"}

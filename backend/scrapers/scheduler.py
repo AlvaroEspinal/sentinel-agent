@@ -156,12 +156,17 @@ class ScrapeScheduler:
             if self.supabase and sales:
                 for sale in sales:
                     # Check if this transfer already exists (by loc_id + sale_date)
+                    loc_id = sale.get("loc_id", "")
+                    sale_date = sale.get("last_sale_date")
+                    if not loc_id or not sale_date:
+                        continue  # Skip records without identifiers
+
                     existing = await self.supabase.fetch(
                         table="property_transfers",
                         select="id",
                         filters={
-                            "loc_id": f"eq.{sale.get('loc_id', '')}",
-                            "sale_date": f"eq.{sale.get('last_sale_date', '')}",
+                            "loc_id": f"eq.{loc_id}",
+                            "sale_date": f"eq.{sale_date}",
                         },
                         limit=1,
                     )
