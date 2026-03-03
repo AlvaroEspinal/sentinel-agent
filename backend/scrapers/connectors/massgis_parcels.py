@@ -5,6 +5,7 @@ Queries the ArcGIS Feature Service for property parcel data across all 351 MA to
 Feature Service: L3_TAXPAR_POLY_ASSESS_gdb / FeatureServer / Layer 0
 Free, no API key required. Max 2000 records per query.
 """
+from __future__ import annotations
 
 import httpx
 
@@ -158,6 +159,237 @@ async def search_parcels(
     except Exception as e:
         print(f"[MassGIS] Error searching parcels for {town}/{address}: {e}")
         return []
+
+
+async def search_by_owner(
+    town: str,
+    owner_name: str,
+    limit: int = 50,
+    timeout: float = 20.0,
+) -> list[dict]:
+    """
+    Search parcels by owner name within a town.
+    Uses LIKE matching on OWNER1 field.
+    """
+    owner_upper = owner_name.strip().upper().replace("'", "''")
+    city_upper = town.strip().upper().replace("'", "''")
+
+    where = f"UPPER(CITY) = '{city_upper}' AND UPPER(OWNER1) LIKE '%{owner_upper}%'"
+
+    params = {
+        "where": where,
+        "outFields": OUT_FIELDS,
+        "returnGeometry": "false",
+        "f": "json",
+        "resultRecordCount": min(limit, 200),
+        "orderByFields": "TOTAL_VAL DESC",
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(PARCELS_URL, params=params, timeout=timeout)
+            resp.raise_for_status()
+            data = resp.json()
+
+        features = data.get("features", [])
+        return [_attrs_to_parcel(f.get("attributes", {})) for f in features]
+
+    except Exception as e:
+        print(f"[MassGIS] Error searching owner '{owner_name}' in {town}: {e}")
+        return []
+
+
+async def search_by_loc_id(
+    loc_id: str,
+    timeout: float = 15.0,
+) -> dict:
+    """
+    Look up a single parcel by MassGIS LOC_ID.
+    """
+    loc_id_clean = loc_id.strip().replace("'", "''")
+    where = f"LOC_ID = '{loc_id_clean}'"
+
+    params = {
+        "where": where,
+        "outFields": OUT_FIELDS,
+        "returnGeometry": "true",
+        "f": "geojson",
+        "outSR": "4326",
+        "resultRecordCount": 1,
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(PARCELS_URL, params=params, timeout=timeout)
+            resp.raise_for_status()
+            data = resp.json()
+
+        features = data.get("features", [])
+        if not features:
+            return _empty_parcel()
+
+        feature = features[0]
+        props = feature.get("properties", {})
+        result = _attrs_to_parcel(props)
+        result["geometry"] = feature.get("geometry")
+        return result
+
+    except Exception as e:
+        print(f"[MassGIS] Error looking up LOC_ID '{loc_id}': {e}")
+        return _empty_parcel()
+
+
+async def get_recent_sales(
+    town: str,
+    min_sale_date: str = "20240101",
+    min_price: int = 1000,
+    limit: int = 500,
+    timeout: float = 30.0,
+) -> list[dict]:
+    """
+    Get recent property sales for a town.
+
+    Args:
+        town: Town name (e.g. "NEWTON")
+        min_sale_date: Minimum sale date as YYYYMMDD string
+        min_price: Minimum sale price to exclude nominal transfers
+        limit: Maximum results (max 2000 per ArcGIS)
+
+    Returns:
+        List of parcel dicts with sale info, sorted by sale date descending.
+    """
+    city_upper = town.strip().upper().replace("'", "''")
+    where = (
+        f"UPPER(CITY) = '{city_upper}' "
+        f"AND LS_DATE >= {min_sale_date} "
+        f"AND LS_PRICE > {min_price}"
+    )
+
+    # Add extra sale-related fields
+    sale_fields = OUT_FIELDS + ",LS_BOOK,LS_PAGE,MAP_PAR_ID"
+
+    params = {
+        "where": where,
+        "outFields": sale_fields,
+        "returnGeometry": "false",
+        "f": "json",
+        "resultRecordCount": min(limit, 2000),
+        "orderByFields": "LS_DATE DESC",
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(PARCELS_URL, params=params, timeout=timeout)
+            resp.raise_for_status()
+            data = resp.json()
+
+        features = data.get("features", [])
+        results = []
+        for f in features:
+            attrs = f.get("attributes", {})
+            parcel = _attrs_to_parcel(attrs)
+            parcel["book_page"] = _format_book_page(attrs.get("LS_BOOK"), attrs.get("LS_PAGE"))
+            parcel["map_par_id"] = attrs.get("MAP_PAR_ID")
+            results.append(parcel)
+
+        return results
+
+    except Exception as e:
+        print(f"[MassGIS] Error getting recent sales for {town}: {e}")
+        return []
+
+
+async def get_town_stats(
+    town: str,
+    timeout: float = 20.0,
+) -> dict:
+    """
+    Get aggregate stats for a town (total parcels, median value, etc.).
+    Uses statisticType queries for efficiency.
+    """
+    city_upper = town.strip().upper().replace("'", "''")
+
+    params = {
+        "where": f"UPPER(CITY) = '{city_upper}' AND TOTAL_VAL > 0",
+        "outStatistics": (
+            '[{"statisticType":"count","onStatisticField":"LOC_ID","outStatisticFieldName":"parcel_count"},'
+            '{"statisticType":"avg","onStatisticField":"TOTAL_VAL","outStatisticFieldName":"avg_value"},'
+            '{"statisticType":"avg","onStatisticField":"LS_PRICE","outStatisticFieldName":"avg_sale_price"},'
+            '{"statisticType":"max","onStatisticField":"LS_DATE","outStatisticFieldName":"latest_sale_date"}]'
+        ),
+        "f": "json",
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(PARCELS_URL, params=params, timeout=timeout)
+            resp.raise_for_status()
+            data = resp.json()
+
+        features = data.get("features", [])
+        if not features:
+            return {"town": town, "parcel_count": 0}
+
+        attrs = features[0].get("attributes", {})
+        return {
+            "town": town,
+            "parcel_count": attrs.get("parcel_count", 0),
+            "avg_assessed_value": round(attrs.get("avg_value") or 0),
+            "avg_sale_price": round(attrs.get("avg_sale_price") or 0),
+            "latest_sale_date": _format_ls_date(attrs.get("latest_sale_date")),
+            "source": "MassGIS Parcels",
+        }
+
+    except Exception as e:
+        print(f"[MassGIS] Error getting stats for {town}: {e}")
+        return {"town": town, "parcel_count": 0, "error": str(e)}
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _attrs_to_parcel(attrs: dict) -> dict:
+    """Convert raw ArcGIS attributes to a normalized parcel dict."""
+    ls_date = attrs.get("LS_DATE")
+    return {
+        "loc_id": attrs.get("LOC_ID"),
+        "site_addr": attrs.get("SITE_ADDR"),
+        "city": attrs.get("CITY"),
+        "owner": attrs.get("OWNER1"),
+        "last_sale_date": _format_ls_date(ls_date),
+        "last_sale_price": attrs.get("LS_PRICE"),
+        "building_value": attrs.get("BLDG_VAL"),
+        "land_value": attrs.get("LAND_VAL"),
+        "total_value": attrs.get("TOTAL_VAL"),
+        "use_code": attrs.get("USE_CODE"),
+        "lot_size_acres": attrs.get("LOT_SIZE"),
+        "year_built": attrs.get("YEAR_BUILT"),
+        "building_area_sqft": attrs.get("BLD_AREA"),
+        "units": attrs.get("UNITS"),
+        "style": attrs.get("STYLE"),
+        "num_rooms": attrs.get("NUM_ROOMS"),
+        "fiscal_year": attrs.get("FY"),
+        "source": "MassGIS Parcels",
+    }
+
+
+def _format_ls_date(ls_date) -> str | None:
+    """Convert MassGIS integer date (YYYYMMDD) to ISO date string."""
+    if not ls_date or not isinstance(ls_date, (int, float)) or ls_date < 10000:
+        return None
+    ls_int = int(ls_date)
+    try:
+        return f"{ls_int // 10000}-{(ls_int % 10000) // 100:02d}-{ls_int % 100:02d}"
+    except Exception:
+        return str(ls_int)
+
+
+def _format_book_page(book, page) -> str | None:
+    """Format registry book/page reference."""
+    if book and page:
+        return f"{book}/{page}"
+    if book:
+        return str(book)
+    return None
 
 
 def _empty_parcel() -> dict:

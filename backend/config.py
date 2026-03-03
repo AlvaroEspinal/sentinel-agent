@@ -84,3 +84,16 @@ ALERT_COOLDOWN_SEC = 3600  # 1 hour between same-type alerts
 # Geocoding
 NOMINATIM_USER_AGENT = os.getenv("NOMINATIM_USER_AGENT", "parcl-intelligence/1.0")
 GOOGLE_GEOCODING_API_KEY = os.getenv("GOOGLE_GEOCODING_API_KEY", "")
+
+# Firecrawl (web scraping)
+FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY", "")
+
+# Feature flags
+ENABLE_GEOSPATIAL_FEEDS = os.getenv("ENABLE_GEOSPATIAL_FEEDS", "false").lower() == "true"
+
+# Target towns (affluent MA municipalities)
+TARGET_TOWN_IDS = [
+    "newton", "wellesley", "weston", "brookline", "needham",
+    "dover", "sherborn", "natick", "wayland", "lincoln",
+    "concord", "lexington",
+]

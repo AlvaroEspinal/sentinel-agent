@@ -15,6 +15,10 @@ import type {
   CoverageSummary,
   TownDetail,
   TrackedListing,
+  AppView,
+  TownConfig,
+  TownDashboardData,
+  ParcelSearchResult,
 } from "../types";
 
 // ─── Market POI Database ───────────────────────────────────────────────────
@@ -81,6 +85,16 @@ interface ParclState {
   // Tracked listings
   trackedListings: TrackedListing[];
   selectedListingId: string | null;
+
+  // Realtor MVP — View management
+  activeView: AppView;
+  activeTownId: string | null;
+  targetTowns: TownConfig[];
+  townDashboardData: TownDashboardData | null;
+  townDashboardLoading: boolean;
+  parcelSearchResults: ParcelSearchResult[];
+  parcelSearchLoading: boolean;
+  showMapOverlay: boolean;
 
   // UI state
   viewMode: ViewMode;
@@ -162,6 +176,18 @@ interface ParclState {
   updateTrackedListing: (id: string, updates: Partial<TrackedListing>) => void;
   selectListing: (id: string) => void;
 
+  // ── Actions: View management (Realtor MVP) ─────────────────────────────
+  setActiveView: (view: AppView) => void;
+  setActiveTownId: (townId: string | null) => void;
+  setTargetTowns: (towns: TownConfig[]) => void;
+  setTownDashboardData: (data: TownDashboardData | null) => void;
+  setTownDashboardLoading: (loading: boolean) => void;
+  setParcelSearchResults: (results: ParcelSearchResult[]) => void;
+  setParcelSearchLoading: (loading: boolean) => void;
+  setShowMapOverlay: (show: boolean) => void;
+  navigateToTown: (townId: string) => void;
+  navigateToDashboard: () => void;
+
   // ── Actions: Compound ────────────────────────────────────────────────────
   selectProperty: (property: Property) => void;
 }
@@ -189,6 +215,16 @@ export const useStore = create<ParclState>((set, get) => ({
   // ── Initial tracked listings ────────────────────────────────────────────
   trackedListings: JSON.parse(localStorage.getItem("parcl-tracked-listings") || "[]"),
   selectedListingId: null,
+
+  // ── Realtor MVP — Initial view state ────────────────────────────────────
+  activeView: "dashboard" as AppView,
+  activeTownId: null,
+  targetTowns: [],
+  townDashboardData: null,
+  townDashboardLoading: false,
+  parcelSearchResults: [],
+  parcelSearchLoading: false,
+  showMapOverlay: false,
 
   // ── Initial UI state ─────────────────────────────────────────────────────
   viewMode: "standard",
@@ -428,6 +464,24 @@ export const useStore = create<ParclState>((set, get) => ({
           : {}),
       });
     }
+  },
+
+  // ── View management actions (Realtor MVP) ──────────────────────────────
+  setActiveView: (view) => set({ activeView: view }),
+  setActiveTownId: (townId) => set({ activeTownId: townId }),
+  setTargetTowns: (towns) => set({ targetTowns: towns }),
+  setTownDashboardData: (data) => set({ townDashboardData: data }),
+  setTownDashboardLoading: (loading) => set({ townDashboardLoading: loading }),
+  setParcelSearchResults: (results) => set({ parcelSearchResults: results }),
+  setParcelSearchLoading: (loading) => set({ parcelSearchLoading: loading }),
+  setShowMapOverlay: (show) => set({ showMapOverlay: show }),
+
+  navigateToTown: (townId) => {
+    set({ activeView: "town" as AppView, activeTownId: townId, townDashboardData: null, townDashboardLoading: true });
+  },
+
+  navigateToDashboard: () => {
+    set({ activeView: "dashboard" as AppView, activeTownId: null, townDashboardData: null });
   },
 
   // ── Compound actions ─────────────────────────────────────────────────────

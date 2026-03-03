@@ -1939,6 +1939,414 @@ async def delete_agent(request: Request, agent_id: str):
     return {"status": "not_found", "agent_id": agent_id}
 
 
+# ─── Town Intelligence Endpoints ─────────────────────────────────────────────
+
+@router.get("/towns")
+async def list_towns(request: Request):
+    """List all target towns with basic config info."""
+    from scrapers.connectors.town_config import get_all_towns
+
+    towns = get_all_towns()
+    result = []
+    for tid, t in towns.items():
+        result.append({
+            "id": t.id,
+            "name": t.name,
+            "county": t.county,
+            "population": t.population,
+            "median_home_value": t.median_home_value,
+            "center": {"lat": t.center_lat, "lon": t.center_lon},
+            "permit_portal_type": t.permit_portal_type,
+            "boards": [b.name for b in t.boards],
+        })
+    return {"towns": result, "total": len(result)}
+
+
+@router.get("/towns/{town_id}")
+async def get_town(request: Request, town_id: str):
+    """Get detailed info for a specific town."""
+    from scrapers.connectors.town_config import get_town
+
+    town = get_town(town_id)
+    if not town:
+        raise HTTPException(status_code=404, detail=f"Town not found: {town_id}")
+
+    return {
+        "id": town.id,
+        "name": town.name,
+        "county": town.county,
+        "registry_district": town.registry_district,
+        "population": town.population,
+        "median_home_value": town.median_home_value,
+        "center": {"lat": town.center_lat, "lon": town.center_lon},
+        "bbox": {"south": town.bbox_south, "west": town.bbox_west, "north": town.bbox_north, "east": town.bbox_east},
+        "permit_portal_url": town.permit_portal_url,
+        "permit_portal_type": town.permit_portal_type,
+        "meeting_minutes_url": town.meeting_minutes_url,
+        "assessor_url": town.assessor_url,
+        "zoning_bylaw_url": town.zoning_bylaw_url,
+        "boards": [
+            {"name": b.name, "slug": b.slug, "minutes_url": b.minutes_url, "agendas_url": b.agendas_url}
+            for b in town.boards
+        ],
+    }
+
+
+@router.get("/towns/{town_id}/dashboard")
+async def get_town_dashboard(request: Request, town_id: str):
+    """Get a combined dashboard for a town: recent sales, permits, stats, documents."""
+    from scrapers.connectors.town_config import get_town
+    from scrapers.connectors.massgis_parcels import get_recent_sales, get_town_stats
+
+    town = get_town(town_id)
+    if not town:
+        raise HTTPException(status_code=404, detail=f"Town not found: {town_id}")
+
+    supabase = _get("supabase_client")
+
+    # Gather data in parallel
+    results = {}
+
+    # MassGIS stats
+    try:
+        stats = await get_town_stats(town.name)
+        results["stats"] = stats
+    except Exception as e:
+        logger.warning("Town stats error for %s: %s", town_id, e)
+        results["stats"] = {}
+
+    # Recent sales (last 90 days)
+    try:
+        from datetime import datetime, timedelta
+        cutoff = (datetime.now() - timedelta(days=90)).strftime("%Y%m%d")
+        sales = await get_recent_sales(town=town.name, min_sale_date=cutoff, min_price=1000, limit=20)
+        results["recent_sales"] = sales
+    except Exception as e:
+        logger.warning("Recent sales error for %s: %s", town_id, e)
+        results["recent_sales"] = []
+
+    # Recent documents from Supabase
+    if supabase:
+        try:
+            docs = await supabase.fetch(
+                table="municipal_documents",
+                select="id,title,board,meeting_date,content_summary,keywords,doc_type",
+                filters={"town_id": f"eq.{town_id}"},
+                order="meeting_date.desc",
+                limit=10,
+            )
+            results["recent_documents"] = docs
+        except Exception as e:
+            logger.warning("Documents error for %s: %s", town_id, e)
+            results["recent_documents"] = []
+    else:
+        results["recent_documents"] = []
+
+    # Recent scrape jobs
+    if supabase:
+        try:
+            jobs = await supabase.fetch(
+                table="scrape_jobs",
+                select="id,source_type,status,completed_at,records_found,records_new",
+                filters={"town_id": f"eq.{town_id}"},
+                order="completed_at.desc",
+                limit=10,
+            )
+            results["scrape_jobs"] = jobs
+        except Exception as e:
+            logger.warning("Scrape jobs error for %s: %s", town_id, e)
+            results["scrape_jobs"] = []
+    else:
+        results["scrape_jobs"] = []
+
+    results["town"] = {
+        "id": town.id,
+        "name": town.name,
+        "county": town.county,
+        "median_home_value": town.median_home_value,
+        "population": town.population,
+    }
+
+    return results
+
+
+@router.get("/towns/{town_id}/activity")
+async def get_town_activity(request: Request, town_id: str, limit: int = Query(default=50, le=200)):
+    """Get a merged activity feed for a town: sales + documents, sorted by date."""
+    from scrapers.connectors.town_config import get_town
+
+    town = get_town(town_id)
+    if not town:
+        raise HTTPException(status_code=404, detail=f"Town not found: {town_id}")
+
+    supabase = _get("supabase_client")
+    activities = []
+
+    if supabase:
+        # Get recent transfers
+        try:
+            transfers = await supabase.fetch(
+                table="property_transfers",
+                select="id,site_addr,owner,sale_date,sale_price,use_code",
+                filters={"town_id": f"eq.{town_id}"},
+                order="sale_date.desc",
+                limit=limit,
+            )
+            for t in transfers:
+                activities.append({
+                    "type": "sale",
+                    "date": t.get("sale_date", ""),
+                    "title": f"Property sold: {t.get('site_addr', 'Unknown')}",
+                    "detail": f"${t['sale_price']:,.0f}" if t.get("sale_price") else "Price undisclosed",
+                    "data": t,
+                })
+        except Exception as e:
+            logger.warning("Transfers activity error: %s", e)
+
+        # Get recent documents
+        try:
+            docs = await supabase.fetch(
+                table="municipal_documents",
+                select="id,title,board,meeting_date,content_summary,doc_type",
+                filters={"town_id": f"eq.{town_id}"},
+                order="meeting_date.desc",
+                limit=limit,
+            )
+            for d in docs:
+                activities.append({
+                    "type": "document",
+                    "date": d.get("meeting_date", ""),
+                    "title": d.get("title", "Meeting Minutes"),
+                    "detail": f"{d.get('board', '')} — {d.get('content_summary', '')[:120]}",
+                    "data": d,
+                })
+        except Exception as e:
+            logger.warning("Documents activity error: %s", e)
+
+    # Sort combined feed by date descending
+    activities.sort(key=lambda x: x.get("date", ""), reverse=True)
+
+    return {"town_id": town_id, "activities": activities[:limit], "total": len(activities)}
+
+
+@router.get("/towns/{town_id}/documents")
+async def get_town_documents(
+    request: Request,
+    town_id: str,
+    doc_type: Optional[str] = None,
+    board: Optional[str] = None,
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
+):
+    """Get municipal documents for a town, optionally filtered by type or board."""
+    supabase = _get("supabase_client")
+    if not supabase:
+        return {"documents": [], "total": 0}
+
+    filters = {"town_id": f"eq.{town_id}"}
+    if doc_type:
+        filters["doc_type"] = f"eq.{doc_type}"
+    if board:
+        filters["board"] = f"eq.{board}"
+
+    try:
+        docs = await supabase.fetch(
+            table="municipal_documents",
+            select="id,title,board,meeting_date,content_summary,keywords,doc_type,source_url,file_url,mentions",
+            filters=filters,
+            order="meeting_date.desc",
+            limit=limit,
+            offset=offset,
+        )
+        total = await supabase.count("municipal_documents", filters=filters)
+        return {"documents": docs, "total": total}
+    except Exception as e:
+        logger.error("Documents fetch error: %s", e)
+        return {"documents": [], "total": 0}
+
+
+@router.get("/towns/{town_id}/transfers")
+async def get_town_transfers(
+    request: Request,
+    town_id: str,
+    min_price: Optional[int] = None,
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
+):
+    """Get property transfers for a town from the database."""
+    supabase = _get("supabase_client")
+    if not supabase:
+        return {"transfers": [], "total": 0}
+
+    filters = {"town_id": f"eq.{town_id}"}
+    if min_price:
+        filters["sale_price"] = f"gte.{min_price}"
+
+    try:
+        transfers = await supabase.fetch(
+            table="property_transfers",
+            select="*",
+            filters=filters,
+            order="sale_date.desc",
+            limit=limit,
+            offset=offset,
+        )
+        total = await supabase.count("property_transfers", filters=filters)
+        return {"transfers": transfers, "total": total}
+    except Exception as e:
+        logger.error("Transfers fetch error: %s", e)
+        return {"transfers": [], "total": 0}
+
+
+# ─── Property Search (Enhanced) ──────────────────────────────────────────────
+
+@router.get("/parcels/search")
+async def search_parcels(
+    request: Request,
+    town: Optional[str] = None,
+    owner: Optional[str] = None,
+    loc_id: Optional[str] = None,
+    limit: int = Query(default=25, le=100),
+):
+    """Search parcels by owner name, LOC_ID, or town."""
+    from scrapers.connectors.massgis_parcels import search_by_owner, search_by_loc_id
+
+    if loc_id:
+        try:
+            result = await search_by_loc_id(loc_id)
+            return {"parcels": [result] if result else [], "total": 1 if result else 0, "query": {"loc_id": loc_id}}
+        except Exception as e:
+            logger.error("LOC_ID search error: %s", e)
+            return {"parcels": [], "total": 0, "error": str(e)}
+
+    if owner and town:
+        try:
+            results = await search_by_owner(town=town, owner_name=owner, limit=limit)
+            return {"parcels": results, "total": len(results), "query": {"town": town, "owner": owner}}
+        except Exception as e:
+            logger.error("Owner search error: %s", e)
+            return {"parcels": [], "total": 0, "error": str(e)}
+
+    if owner:
+        return {"parcels": [], "total": 0, "error": "Owner search requires a town parameter"}
+
+    return {"parcels": [], "total": 0, "error": "Provide owner+town or loc_id parameter"}
+
+
+@router.get("/parcels/{loc_id}/mentions")
+async def get_parcel_mentions(request: Request, loc_id: str):
+    """Find meeting minutes that mention a specific parcel or address."""
+    supabase = _get("supabase_client")
+    if not supabase:
+        return {"mentions": [], "total": 0}
+
+    # First get the parcel address
+    from scrapers.connectors.massgis_parcels import search_by_loc_id
+    parcel = None
+    try:
+        parcel = await search_by_loc_id(loc_id)
+    except Exception:
+        pass
+
+    if not parcel:
+        return {"mentions": [], "total": 0, "error": "Parcel not found"}
+
+    address = parcel.get("site_addr", "")
+    if not address:
+        return {"mentions": [], "total": 0, "error": "No address found for parcel"}
+
+    # Search documents where mentions contain this address or loc_id
+    try:
+        # Use Supabase text search on content_text
+        docs = await supabase.fetch(
+            table="municipal_documents",
+            select="id,title,board,meeting_date,content_summary,mentions,town_id",
+            filters={"content_text": f"ilike.%{address}%"},
+            order="meeting_date.desc",
+            limit=20,
+        )
+        return {
+            "parcel": {"loc_id": loc_id, "address": address},
+            "mentions": docs,
+            "total": len(docs),
+        }
+    except Exception as e:
+        logger.error("Parcel mentions error: %s", e)
+        return {"mentions": [], "total": 0, "error": str(e)}
+
+
+# ─── Scrape Management Endpoints ─────────────────────────────────────────────
+
+@router.post("/scrape/trigger/{town_id}")
+async def trigger_scrape(request: Request, town_id: str, source_type: Optional[str] = None):
+    """Manually trigger a scrape for a specific town."""
+    scheduler = _get("scrape_scheduler")
+    if not scheduler:
+        raise HTTPException(status_code=503, detail="Scrape scheduler not initialized")
+
+    result = await scheduler.trigger_town_scrape(town_id, source_type=source_type)
+
+    if "error" in result and not any(k for k in result if k != "error"):
+        raise HTTPException(status_code=404, detail=result["error"])
+
+    return {"status": "triggered", "town_id": town_id, "results": result}
+
+
+@router.get("/scrape/status")
+async def scrape_status(request: Request, town_id: Optional[str] = None, limit: int = Query(default=20, le=100)):
+    """Get recent scrape job status."""
+    supabase = _get("supabase_client")
+    if not supabase:
+        return {"jobs": [], "total": 0}
+
+    filters = {}
+    if town_id:
+        filters["town_id"] = f"eq.{town_id}"
+
+    try:
+        jobs = await supabase.fetch(
+            table="scrape_jobs",
+            select="*",
+            filters=filters,
+            order="started_at.desc",
+            limit=limit,
+        )
+        return {"jobs": jobs, "total": len(jobs)}
+    except Exception as e:
+        logger.error("Scrape status error: %s", e)
+        return {"jobs": [], "total": 0}
+
+
+@router.get("/scrape/stats")
+async def scrape_stats(request: Request):
+    """Get overall scraping statistics across all towns."""
+    supabase = _get("supabase_client")
+    if not supabase:
+        return {"stats": {}}
+
+    try:
+        # Count documents, transfers, and jobs
+        doc_count = await supabase.count("municipal_documents")
+        transfer_count = await supabase.count("property_transfers")
+        job_count = await supabase.count("scrape_jobs")
+
+        completed_jobs = await supabase.count("scrape_jobs", filters={"status": "eq.completed"})
+        failed_jobs = await supabase.count("scrape_jobs", filters={"status": "eq.failed"})
+
+        return {
+            "stats": {
+                "total_documents": doc_count,
+                "total_transfers": transfer_count,
+                "total_jobs": job_count,
+                "completed_jobs": completed_jobs,
+                "failed_jobs": failed_jobs,
+            }
+        }
+    except Exception as e:
+        logger.error("Scrape stats error: %s", e)
+        return {"stats": {}}
+
+
 # ──────────────────────────────────────────────
 # WebSocket handler
 # ──────────────────────────────────────────────

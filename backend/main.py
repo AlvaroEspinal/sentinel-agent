@@ -22,40 +22,46 @@ from loguru import logger
 from config import (
     BACKEND_HOST, BACKEND_PORT, FRONTEND_URL, BASE_DIR,
     SUPABASE_URL, SUPABASE_SERVICE_KEY,
+    ENABLE_GEOSPATIAL_FEEDS, FIRECRAWL_API_KEY,
 )
 from models.portfolio import Portfolio, PositionSide, Position
 from api.routes import router, websocket_endpoint, _state
 from api.websocket import ConnectionManager
 
-# ── Data Clients ──
-from data.opensky import OpenSkyClient
-from data.weather import WeatherClient
-from data.satellite import SatelliteClient
-from data.ships import AISClient
-from data.stocks import StockDataClient
-from data.sec_filings import SECFilingsClient
-from data.traffic_cameras import TrafficCameraClient
-from data.satellites_orbital import SatelliteOrbitalClient
-from data.military_flights import MilitaryFlightClient
-from data.earthquakes import EarthquakeClient
+# ── Data Clients (conditionally loaded) ──
+if ENABLE_GEOSPATIAL_FEEDS:
+    from data.opensky import OpenSkyClient
+    from data.weather import WeatherClient
+    from data.satellite import SatelliteClient
+    from data.ships import AISClient
+    from data.stocks import StockDataClient
+    from data.sec_filings import SECFilingsClient
+    from data.traffic_cameras import TrafficCameraClient
+    from data.satellites_orbital import SatelliteOrbitalClient
+    from data.military_flights import MilitaryFlightClient
+    from data.earthquakes import EarthquakeClient
 
 # ── Services ──
 from services.ledger import ComplianceLedger
 from services.pdf_generator import AuditPDFGenerator
 from services.vector_store import VectorStore
 
-# ── Agents ──
-from agents.orchestrator import ThesisOrchestrator
-from agents.sensor_orchestrator import SensorOrchestrator
-from agents.consensus_vision import ConsensusVisionAgent
-from agents.quant_regression import QuantRegressionAgent
-from agents.omnichannel_rag import OmnichannelRAGAgent
-from agents.compliance_copilot import ComplianceCoPilot
+# ── Agents (conditionally loaded) ──
+if ENABLE_GEOSPATIAL_FEEDS:
+    from agents.orchestrator import ThesisOrchestrator
+    from agents.sensor_orchestrator import SensorOrchestrator
+    from agents.consensus_vision import ConsensusVisionAgent
+    from agents.quant_regression import QuantRegressionAgent
+    from agents.omnichannel_rag import OmnichannelRAGAgent
+    from agents.compliance_copilot import ComplianceCoPilot
 
 # ── Real Estate / Parcl Intelligence ──
 from database.supabase_client import SupabaseRestClient
 from scrapers.permit_loader import PermitDataLoader
 from services.permit_search import PermitSearchService
+from scrapers.scheduler import ScrapeScheduler
+from scrapers.connectors.firecrawl_client import FirecrawlClient
+from scrapers.connectors.llm_extractor import LLMExtractor
 
 
 # ──────────────────────────────────────────────
@@ -258,18 +264,38 @@ async def lifespan(app: FastAPI):
     logger.info("  PARCL INTELLIGENCE - Initializing")
     logger.info("=" * 60)
 
-    # ── Initialize Data Clients ──
-    opensky_client = OpenSkyClient()
-    weather_client = WeatherClient()
-    satellite_client = SatelliteClient()
-    ais_client = AISClient()
-    stock_client = StockDataClient()
-    sec_client = SECFilingsClient()
-    camera_client = TrafficCameraClient()
-    satellite_orbital_client = SatelliteOrbitalClient()
-    military_flight_client = MilitaryFlightClient()
-    earthquake_client = EarthquakeClient()
-    logger.info("Data clients initialized (incl. cameras, satellites, military, earthquakes)")
+    # ── Initialize Data Clients (geospatial feeds — optional) ──
+    opensky_client = None
+    weather_client = None
+    satellite_client = None
+    ais_client = None
+    stock_client = None
+    sec_client = None
+    camera_client = None
+    satellite_orbital_client = None
+    military_flight_client = None
+    earthquake_client = None
+    orchestrator = None
+    sensor_orchestrator = None
+    vision_agent = None
+    quant_agent = None
+    rag_agent = None
+    compliance_copilot = None
+
+    if ENABLE_GEOSPATIAL_FEEDS:
+        opensky_client = OpenSkyClient()
+        weather_client = WeatherClient()
+        satellite_client = SatelliteClient()
+        ais_client = AISClient()
+        stock_client = StockDataClient()
+        sec_client = SECFilingsClient()
+        camera_client = TrafficCameraClient()
+        satellite_orbital_client = SatelliteOrbitalClient()
+        military_flight_client = MilitaryFlightClient()
+        earthquake_client = EarthquakeClient()
+        logger.info("Geospatial data clients initialized")
+    else:
+        logger.info("Geospatial feeds DISABLED — realtor MVP mode")
 
     # ── Initialize Services ──
     compliance_ledger = ComplianceLedger()
@@ -277,23 +303,26 @@ async def lifespan(app: FastAPI):
     vector_store = VectorStore()
     logger.info("Services initialized")
 
-    # ── Initialize Agents ──
-    orchestrator = ThesisOrchestrator()
-    sensor_orchestrator = SensorOrchestrator(
-        weather_client=weather_client,
-        satellite_client=satellite_client,
-        opensky_client=opensky_client,
-        ais_client=ais_client,
-        ledger=compliance_ledger,
-    )
-    vision_agent = ConsensusVisionAgent()
-    quant_agent = QuantRegressionAgent(stock_client=stock_client)
-    rag_agent = OmnichannelRAGAgent(
-        sec_client=sec_client,
-        vector_store=vector_store,
-    )
-    compliance_copilot = ComplianceCoPilot(ledger=compliance_ledger)
-    logger.info("6-Agent pipeline initialized")
+    # ── Initialize Agents (geospatial — optional) ──
+    if ENABLE_GEOSPATIAL_FEEDS:
+        orchestrator = ThesisOrchestrator()
+        sensor_orchestrator = SensorOrchestrator(
+            weather_client=weather_client,
+            satellite_client=satellite_client,
+            opensky_client=opensky_client,
+            ais_client=ais_client,
+            ledger=compliance_ledger,
+        )
+        vision_agent = ConsensusVisionAgent()
+        quant_agent = QuantRegressionAgent(stock_client=stock_client)
+        rag_agent = OmnichannelRAGAgent(
+            sec_client=sec_client,
+            vector_store=vector_store,
+        )
+        compliance_copilot = ComplianceCoPilot(ledger=compliance_ledger)
+        logger.info("6-Agent pipeline initialized")
+    else:
+        logger.info("Hedge fund agents DISABLED — realtor MVP mode")
 
     # ── Initialize Supabase (municipal-intel data) ──
     supabase_client = None
@@ -317,6 +346,28 @@ async def lifespan(app: FastAPI):
     permit_search = PermitSearchService(permit_loader)
     mode = "Supabase" if permit_loader.is_supabase else "demo JSON"
     logger.info(f"Parcl Intelligence: {permit_loader.count:,} permits ({mode}), RAG search ready")
+
+    # ── Initialize Scrape Scheduler (Realtor MVP) ──
+    firecrawl_client = None
+    llm_extractor = None
+    scrape_scheduler = None
+
+    if FIRECRAWL_API_KEY:
+        firecrawl_client = FirecrawlClient(api_key=FIRECRAWL_API_KEY)
+        logger.info("Firecrawl client initialized")
+
+    try:
+        llm_extractor = LLMExtractor()
+        logger.info("LLM extractor initialized (Claude API)")
+    except Exception as exc:
+        logger.warning("LLM extractor not available: %s", exc)
+
+    scrape_scheduler = ScrapeScheduler(
+        supabase=supabase_client,
+        firecrawl=firecrawl_client,
+        llm_extractor=llm_extractor,
+    )
+    logger.info("Scrape scheduler initialized")
 
     # ── Initialize Portfolio ──
     portfolio = Portfolio(fund_name="Sentinel Fund")
@@ -349,37 +400,51 @@ async def lifespan(app: FastAPI):
         "permit_search": permit_search,
         "property_agents": [],
         "supabase_client": supabase_client,
+        # Realtor MVP
+        "scrape_scheduler": scrape_scheduler,
+        "firecrawl_client": firecrawl_client,
+        "llm_extractor": llm_extractor,
     })
 
-    # ── Start background data refresh ──
-    bg_task = asyncio.create_task(_background_data_loop())
+    # ── Start background tasks ──
+    bg_task = None
+    if ENABLE_GEOSPATIAL_FEEDS:
+        bg_task = asyncio.create_task(_background_data_loop())
+        logger.info("Geospatial background loop started")
 
-    # ── Start agent execution loop ──
     agent_loop_task = asyncio.create_task(_agent_execution_loop(_state))
+
+    # ── Start scrape scheduler (runs every 5 minutes) ──
+    scheduler_task = asyncio.create_task(scrape_scheduler.start(check_interval_s=300.0))
 
     logger.info("=" * 60)
     logger.info("  PARCL INTELLIGENCE - ONLINE")
-    logger.info(f"  Backend:   http://{BACKEND_HOST}:{BACKEND_PORT}")
-    logger.info(f"  Frontend:  {FRONTEND_URL}")
-    logger.info(f"  WebSocket: ws://{BACKEND_HOST}:{BACKEND_PORT}/ws")
-    logger.info(f"  Permits:   {permit_loader.count:,} ({mode})")
-    logger.info(f"  Database:  {'Supabase REST' if supabase_client else 'demo JSON'}")
+    logger.info(f"  Backend:    http://{BACKEND_HOST}:{BACKEND_PORT}")
+    logger.info(f"  Frontend:   {FRONTEND_URL}")
+    logger.info(f"  WebSocket:  ws://{BACKEND_HOST}:{BACKEND_PORT}/ws")
+    logger.info(f"  Permits:    {permit_loader.count:,} ({mode})")
+    logger.info(f"  Database:   {'Supabase REST' if supabase_client else 'demo JSON'}")
+    logger.info(f"  Firecrawl:  {'active' if firecrawl_client else 'not configured'}")
+    logger.info(f"  Scheduler:  active (12 towns)")
+    logger.info(f"  Geospatial: {'ON' if ENABLE_GEOSPATIAL_FEEDS else 'OFF'}")
     logger.info("=" * 60)
 
     yield
 
     # ── Shutdown ──
     logger.info("Parcl Intelligence shutting down...")
-    bg_task.cancel()
+    scrape_scheduler.stop()
+    scheduler_task.cancel()
+    if bg_task:
+        bg_task.cancel()
     agent_loop_task.cancel()
-    try:
-        await bg_task
-    except asyncio.CancelledError:
-        pass
-    try:
-        await agent_loop_task
-    except asyncio.CancelledError:
-        pass
+
+    for task in [t for t in [scheduler_task, bg_task, agent_loop_task] if t]:
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
     if supabase_client:
         await supabase_client.disconnect()
 

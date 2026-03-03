@@ -12,6 +12,7 @@ Usage:
     count = await client.count("documents", filters={"source_type": "eq.permit"})
     await client.disconnect()
 """
+from __future__ import annotations
 
 import logging
 from typing import Any, Optional
@@ -223,6 +224,79 @@ class SupabaseRestClient:
         )
         resp.raise_for_status()
         return resp.json()
+
+    async def insert(
+        self,
+        table: str,
+        data: dict | list[dict],
+        upsert: bool = False,
+    ) -> list[dict]:
+        """
+        Insert one or more rows into a table.
+
+        Uses PostgREST POST method.
+
+        Args:
+            table:   Table name
+            data:    Dict (single row) or list of dicts (batch insert)
+            upsert:  If True, use Prefer: resolution=merge-duplicates
+
+        Returns:
+            List of inserted row dicts (if Prefer: return=representation)
+        """
+        if not self._client:
+            raise RuntimeError("Supabase client not connected — call connect() first")
+
+        prefer = "return=representation"
+        if upsert:
+            prefer += ",resolution=merge-duplicates"
+
+        headers = self._headers({"Prefer": prefer})
+
+        resp = await self._client.post(
+            f"{self._rest_url}/{table}",
+            headers=headers,
+            json=data,
+        )
+        resp.raise_for_status()
+
+        try:
+            return resp.json()
+        except Exception:
+            return []
+
+    async def delete(
+        self,
+        table: str,
+        filters: dict,
+    ) -> bool:
+        """
+        Delete rows matching filters.
+
+        Uses PostgREST DELETE method.
+
+        Args:
+            table:   Table name
+            filters: PostgREST filters to select rows (e.g. {"id": "eq.uuid-here"})
+
+        Returns:
+            True if request succeeded
+        """
+        if not self._client:
+            raise RuntimeError("Supabase client not connected — call connect() first")
+
+        params: dict[str, str] = {}
+        params.update(filters)
+
+        headers = self._headers({"Prefer": "return=minimal"})
+
+        resp = await self._client.delete(
+            f"{self._rest_url}/{table}",
+            headers=headers,
+            params=params,
+        )
+        resp.raise_for_status()
+        return True
 
     async def update(
         self,

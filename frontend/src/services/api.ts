@@ -436,6 +436,147 @@ export async function getPermitPins(
   return res.json();
 }
 
+// ─── Town Intelligence API ──────────────────────────────────────────────────
+
+export async function getTargetTowns(): Promise<{
+  towns: Array<{
+    id: string;
+    name: string;
+    county: string;
+    population: number;
+    median_home_value: number;
+    center: { lat: number; lon: number };
+    permit_portal_type: string;
+    boards: string[];
+  }>;
+  total: number;
+}> {
+  const res = await fetch(`${API_BASE}/api/towns`);
+  return res.json();
+}
+
+export async function getTownDashboard(townId: string): Promise<{
+  town: { id: string; name: string; county: string; median_home_value: number; population: number };
+  stats: Record<string, unknown>;
+  recent_sales: Array<Record<string, unknown>>;
+  recent_documents: Array<Record<string, unknown>>;
+  scrape_jobs: Array<Record<string, unknown>>;
+}> {
+  const res = await fetch(`${API_BASE}/api/towns/${townId}/dashboard`);
+  return res.json();
+}
+
+export async function getTownActivity(townId: string, limit = 50): Promise<{
+  town_id: string;
+  activities: Array<{
+    type: string;
+    date: string;
+    title: string;
+    detail: string;
+    data: Record<string, unknown>;
+  }>;
+  total: number;
+}> {
+  const res = await fetch(`${API_BASE}/api/towns/${townId}/activity?limit=${limit}`);
+  return res.json();
+}
+
+export async function getTownDocuments(
+  townId: string,
+  params?: { doc_type?: string; board?: string; limit?: number; offset?: number }
+): Promise<{
+  documents: Array<Record<string, unknown>>;
+  total: number;
+}> {
+  const searchParams = new URLSearchParams();
+  if (params?.doc_type) searchParams.set("doc_type", params.doc_type);
+  if (params?.board) searchParams.set("board", params.board);
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.offset) searchParams.set("offset", String(params.offset));
+  const qs = searchParams.toString();
+  const res = await fetch(`${API_BASE}/api/towns/${townId}/documents${qs ? `?${qs}` : ""}`);
+  return res.json();
+}
+
+export async function getTownTransfers(
+  townId: string,
+  params?: { min_price?: number; limit?: number; offset?: number }
+): Promise<{
+  transfers: Array<Record<string, unknown>>;
+  total: number;
+}> {
+  const searchParams = new URLSearchParams();
+  if (params?.min_price) searchParams.set("min_price", String(params.min_price));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.offset) searchParams.set("offset", String(params.offset));
+  const qs = searchParams.toString();
+  const res = await fetch(`${API_BASE}/api/towns/${townId}/transfers${qs ? `?${qs}` : ""}`);
+  return res.json();
+}
+
+// ─── Parcel Search API ─────────────────────────────────────────────────────
+
+export async function searchParcels(params: {
+  town?: string;
+  owner?: string;
+  loc_id?: string;
+  limit?: number;
+}): Promise<{
+  parcels: Array<Record<string, unknown>>;
+  total: number;
+  query: Record<string, string>;
+}> {
+  const searchParams = new URLSearchParams();
+  if (params.town) searchParams.set("town", params.town);
+  if (params.owner) searchParams.set("owner", params.owner);
+  if (params.loc_id) searchParams.set("loc_id", params.loc_id);
+  if (params.limit) searchParams.set("limit", String(params.limit));
+  const res = await fetch(`${API_BASE}/api/parcels/search?${searchParams}`);
+  return res.json();
+}
+
+export async function getParcelMentions(locId: string): Promise<{
+  parcel: { loc_id: string; address: string } | null;
+  mentions: Array<Record<string, unknown>>;
+  total: number;
+}> {
+  const res = await fetch(`${API_BASE}/api/parcels/${locId}/mentions`);
+  return res.json();
+}
+
+// ─── Scrape Management API ─────────────────────────────────────────────────
+
+export async function triggerScrape(
+  townId: string,
+  sourceType?: string
+): Promise<{ status: string; town_id: string; results: Record<string, unknown> }> {
+  const qs = sourceType ? `?source_type=${sourceType}` : "";
+  const res = await fetch(`${API_BASE}/api/scrape/trigger/${townId}${qs}`, { method: "POST" });
+  return res.json();
+}
+
+export async function getScrapeStatus(townId?: string): Promise<{
+  jobs: Array<Record<string, unknown>>;
+  total: number;
+}> {
+  const qs = townId ? `?town_id=${townId}` : "";
+  const res = await fetch(`${API_BASE}/api/scrape/status${qs}`);
+  return res.json();
+}
+
+export async function getScrapeStats(): Promise<{
+  stats: {
+    total_documents: number;
+    total_transfers: number;
+    total_jobs: number;
+    completed_jobs: number;
+    failed_jobs: number;
+  };
+}> {
+  const res = await fetch(`${API_BASE}/api/scrape/stats`);
+  return res.json();
+}
+
 // ─── Agent API ──────────────────────────────────────────────────────────────
 
 export async function listPropertyAgents(): Promise<{

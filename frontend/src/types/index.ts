@@ -405,6 +405,96 @@ export interface TownDetail {
   coverage_pct: number;
 }
 
+// ─── App View ─────────────────────────────────────────────────────────────
+export type AppView = "dashboard" | "search" | "property" | "town" | "map";
+
+// ─── Municipal Document (meeting minutes, filings) ──────────────────────
+export interface MunicipalDocument {
+  id: string;
+  town_id: string;
+  doc_type: string;
+  board: string | null;
+  title: string;
+  meeting_date: string | null;
+  source_url: string | null;
+  file_url: string | null;
+  content_summary: string | null;
+  keywords: string[];
+  mentions: Record<string, unknown> | null;
+  scraped_at: string | null;
+}
+
+// ─── Property Transfer ──────────────────────────────────────────────────
+export interface PropertyTransfer {
+  id: string;
+  town_id: string;
+  loc_id: string | null;
+  site_addr: string | null;
+  owner: string | null;
+  sale_date: string | null;
+  sale_price: number | null;
+  book_page: string | null;
+  assessed_value: number | null;
+  price_per_sqft: number | null;
+  building_area: number | null;
+  lot_size_acres: number | null;
+  year_built: number | null;
+  style: string | null;
+  use_code: string | null;
+}
+
+// ─── Town Config (from backend registry) ────────────────────────────────
+export interface TownConfig {
+  id: string;
+  name: string;
+  county: string;
+  population: number;
+  median_home_value: number;
+  center: { lat: number; lon: number };
+  permit_portal_type: string;
+  boards: string[];
+}
+
+// ─── Town Dashboard Data ────────────────────────────────────────────────
+export interface TownDashboardData {
+  town: {
+    id: string;
+    name: string;
+    county: string;
+    median_home_value: number;
+    population: number;
+  };
+  stats: Record<string, unknown>;
+  recent_sales: PropertyTransfer[];
+  recent_documents: MunicipalDocument[];
+  scrape_jobs: Array<Record<string, unknown>>;
+}
+
+// ─── Activity Feed Item ─────────────────────────────────────────────────
+export interface ActivityItem {
+  type: "sale" | "document" | "permit";
+  date: string;
+  title: string;
+  detail: string;
+  data: Record<string, unknown>;
+}
+
+// ─── Parcel Search Result ───────────────────────────────────────────────
+export interface ParcelSearchResult {
+  loc_id: string | null;
+  site_addr: string | null;
+  city: string | null;
+  owner: string | null;
+  last_sale_date: string | null;
+  last_sale_price: number | null;
+  total_value: number | null;
+  building_area_sqft: number | null;
+  lot_size_acres: number | null;
+  year_built: number | null;
+  use_code: string | null;
+  style: string | null;
+}
+
 // ── Listing Tracking ──
 export type ListingTrackingStatus = "active" | "potential" | "archived";
 
