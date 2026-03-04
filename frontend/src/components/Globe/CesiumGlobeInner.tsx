@@ -172,18 +172,13 @@ const CesiumGlobeInner: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<CesiumViewer | null>(null);
   const viewMode = useStore((s) => s.viewMode);
-  const cameras = useStore((s) => s.cameras);
-  const earthquakes = useStore((s) => s.earthquakes);
   const permits = useStore((s) => s.permits);
   const propertySearchResults = useStore((s) => s.propertySearchResults);
-  const showCameras = useStore((s) => s.showCameras);
-  const showEarthquakes = useStore((s) => s.showEarthquakes);
   const showPermits = useStore((s) => s.showPermits);
   const showProperties = useStore((s) => s.showProperties);
   const showFloodZones = useStore((s) => s.showFloodZones);
   const showParcels = useStore((s) => s.showParcels);
   const selectedProperty = useStore((s) => s.selectedProperty);
-  const selectCamera = useStore((s) => s.selectCamera);
   const selectProperty = useStore((s) => s.selectProperty);
   const cameraTarget = useStore((s) => s.cameraTarget);
   const navigateToPOI = useStore((s) => s.navigateToPOI);
@@ -375,7 +370,7 @@ const CesiumGlobeInner: React.FC = () => {
     });
   }, [cameraTarget]);
 
-  // ── Entity click handler (cameras, permits, properties) ────────────────
+  // ── Entity click handler (permits, properties) ─────────────────────────
   useEffect(() => {
     if (!viewerRef.current || !ready) return;
     const viewer = viewerRef.current;
@@ -386,15 +381,6 @@ const CesiumGlobeInner: React.FC = () => {
       const picked = viewer.scene.pick(click.position);
       if (picked && picked.id && typeof picked.id.id === "string") {
         const entityId: string = picked.id.id;
-
-        // Camera click
-        if (entityId.startsWith("camera_")) {
-          const camId = entityId.replace("camera_", "");
-          const cam = cameras?.find((c) => String(c.id) === camId);
-          if (cam) {
-            selectCamera(cam);
-          }
-        }
 
         // Property click
         if (entityId.startsWith("property_")) {
@@ -449,7 +435,7 @@ const CesiumGlobeInner: React.FC = () => {
     }, ScreenSpaceEventType.LEFT_CLICK);
 
     return () => handler.destroy();
-  }, [ready, cameras, propertySearchResults, selectCamera, selectProperty]);
+  }, [ready, propertySearchResults, selectProperty]);
 
   // ── Sync entity data to the viewer ──────────────────────────────────────
   useEffect(() => {
@@ -460,82 +446,6 @@ const CesiumGlobeInner: React.FC = () => {
     entities.removeAll();
     // Clear parcel IDs since removeAll wiped them — parcel effect will re-add
     parcelEntityIdsRef.current = [];
-
-    // ── Earthquakes (USGS) ───────────────────────────────────────────────
-    if (showEarthquakes && earthquakes) {
-      earthquakes.forEach((eq) => {
-        if (!eq.latitude || !eq.longitude) return;
-        entities.add({
-          position: Cartesian3.fromDegrees(eq.longitude, eq.latitude, 0),
-          billboard: {
-            image: createEarthquakeSvg(eq.magnitude || 1),
-            scale: 1.0,
-            verticalOrigin: VerticalOrigin.CENTER,
-            horizontalOrigin: HorizontalOrigin.CENTER,
-            distanceDisplayCondition: new DistanceDisplayCondition(0, 2e7),
-          },
-          label: {
-            text: `M${eq.magnitude?.toFixed(1)}`,
-            font: "10px monospace",
-            fillColor: Color.fromCssColorString(eq.magnitude >= 5 ? "#ef4444" : eq.magnitude >= 3 ? "#fbbf24" : "#a3e635"),
-            outlineColor: Color.BLACK,
-            outlineWidth: 2,
-            style: LabelStyle.FILL_AND_OUTLINE,
-            pixelOffset: new Cartesian2(14, 0),
-            scale: 0.8,
-            verticalOrigin: VerticalOrigin.CENTER,
-            horizontalOrigin: HorizontalOrigin.LEFT,
-            distanceDisplayCondition: new DistanceDisplayCondition(0, 8e6),
-            translucencyByDistance: new NearFarScalar(1e5, 1.0, 8e6, 0.0),
-          },
-          name: `Earthquake M${eq.magnitude}`,
-          description: `Magnitude: ${eq.magnitude} ${eq.magnitude_type}<br/>
-            Location: ${eq.place}<br/>
-            Depth: ${eq.depth_km} km<br/>
-            Severity: ${eq.severity}<br/>
-            Tsunami: ${eq.tsunami ? "YES" : "No"}<br/>
-            Time: ${new Date(eq.time).toUTCString()}`,
-        });
-      });
-    }
-
-    // ── Cameras ──────────────────────────────────────────────────────────
-    if (showCameras && cameras) {
-      cameras.forEach((cam) => {
-        if (!cam.latitude || !cam.longitude) return;
-        entities.add({
-          id: `camera_${cam.id}`,
-          position: Cartesian3.fromDegrees(cam.longitude, cam.latitude, 500),
-          billboard: {
-            image: cameraSvg(cam.status),
-            scale: 1.0,
-            verticalOrigin: VerticalOrigin.CENTER,
-            horizontalOrigin: HorizontalOrigin.CENTER,
-            translucencyByDistance: new NearFarScalar(1e4, 1.0, 8e6, 0.4),
-            distanceDisplayCondition: new DistanceDisplayCondition(0, 1e7),
-          },
-          label: {
-            text: cam.name || "",
-            font: "9px monospace",
-            fillColor: Color.fromCssColorString("#a78bfa"),
-            outlineColor: Color.BLACK,
-            outlineWidth: 2,
-            style: LabelStyle.FILL_AND_OUTLINE,
-            pixelOffset: new Cartesian2(14, -4),
-            scale: 0.8,
-            verticalOrigin: VerticalOrigin.CENTER,
-            horizontalOrigin: HorizontalOrigin.LEFT,
-            distanceDisplayCondition: new DistanceDisplayCondition(0, 2e6),
-            translucencyByDistance: new NearFarScalar(5e4, 1.0, 2e6, 0.0),
-          },
-          name: cam.name,
-          description: `Source: ${cam.source}<br/>
-            Status: ${cam.status}<br/>
-            Category: ${cam.category}<br/>
-            Region: ${cam.region}, ${cam.country}`,
-        });
-      });
-    }
 
     // ── Permits ──────────────────────────────────────────────────────────
     if (showPermits && permits) {
@@ -686,8 +596,8 @@ const CesiumGlobeInner: React.FC = () => {
           .catch((err) => console.warn("[CesiumGlobe] Parcel fetch failed:", err?.message));
       }
     }
-  }, [cameras, earthquakes, permits, propertySearchResults, selectedProperty,
-      showCameras, showEarthquakes, showPermits, showProperties, ready]);
+  }, [permits, propertySearchResults, selectedProperty,
+      showPermits, showProperties, ready]);
 
   // ── FEMA Flood Zone WMS overlay ──────────────────────────────────────────
   useEffect(() => {

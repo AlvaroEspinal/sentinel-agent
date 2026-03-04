@@ -7,9 +7,6 @@ import { wsService } from "../services/api";
  * Reconnection logic is handled internally by wsService.
  *
  * Dispatches the following events to the store:
- *   - cameras_update
- *   - earthquakes_update
- *   - sensor_status
  *   - connection_established
  *   - permits_update
  *   - property_update

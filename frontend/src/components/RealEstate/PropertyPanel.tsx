@@ -489,9 +489,6 @@ const SummaryTab: React.FC<SummaryTabProps> = ({ property, onSwitchToPermits }) 
       >
         {property.nearby_permits_count} permits nearby
       </button>
-      <p className="text-xs text-parcl-text-dim">
-        {property.nearby_cameras_count} cameras nearby
-      </p>
     </div>
   </div>
 );

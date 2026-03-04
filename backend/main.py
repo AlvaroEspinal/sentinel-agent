@@ -1,8 +1,8 @@
 """
 Parcl Intelligence - Backend Entry Point
 
-Real estate geospatial intelligence platform combining OSINT data feeds,
-building permits, property analytics, and AI monitoring agents.
+Real estate data intelligence platform for affluent Massachusetts communities.
+Property analytics, permit tracking, municipal document scraping, and market monitoring.
 
 Usage:
     python main.py
@@ -16,44 +16,15 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 from config import (
-    BACKEND_HOST, BACKEND_PORT, FRONTEND_URL, BASE_DIR,
+    BACKEND_HOST, BACKEND_PORT, FRONTEND_URL,
     SUPABASE_URL, SUPABASE_SERVICE_KEY,
-    ENABLE_GEOSPATIAL_FEEDS, FIRECRAWL_API_KEY,
+    FIRECRAWL_API_KEY,
 )
-from models.portfolio import Portfolio, PositionSide, Position
 from api.routes import router, websocket_endpoint, _state
 from api.websocket import ConnectionManager
-
-# ── Data Clients (conditionally loaded) ──
-if ENABLE_GEOSPATIAL_FEEDS:
-    from data.opensky import OpenSkyClient
-    from data.weather import WeatherClient
-    from data.satellite import SatelliteClient
-    from data.ships import AISClient
-    from data.stocks import StockDataClient
-    from data.sec_filings import SECFilingsClient
-    from data.traffic_cameras import TrafficCameraClient
-    from data.satellites_orbital import SatelliteOrbitalClient
-    from data.military_flights import MilitaryFlightClient
-    from data.earthquakes import EarthquakeClient
-
-# ── Services ──
-from services.ledger import ComplianceLedger
-from services.pdf_generator import AuditPDFGenerator
-from services.vector_store import VectorStore
-
-# ── Agents (conditionally loaded) ──
-if ENABLE_GEOSPATIAL_FEEDS:
-    from agents.orchestrator import ThesisOrchestrator
-    from agents.sensor_orchestrator import SensorOrchestrator
-    from agents.consensus_vision import ConsensusVisionAgent
-    from agents.quant_regression import QuantRegressionAgent
-    from agents.omnichannel_rag import OmnichannelRAGAgent
-    from agents.compliance_copilot import ComplianceCoPilot
 
 # ── Real Estate / Parcl Intelligence ──
 from database.supabase_client import SupabaseRestClient
@@ -62,87 +33,6 @@ from services.permit_search import PermitSearchService
 from scrapers.scheduler import ScrapeScheduler
 from scrapers.connectors.firecrawl_client import FirecrawlClient
 from scrapers.connectors.llm_extractor import LLMExtractor
-
-
-# ──────────────────────────────────────────────
-# Background data refresh task
-# ──────────────────────────────────────────────
-
-async def _background_data_loop():
-    """Periodically refresh flight, ship, and camera data and broadcast to clients."""
-    from api.routes import ws_manager
-    opensky = _state.get("opensky_client")
-    ais = _state.get("ais_client")
-    camera_client = _state.get("camera_client")
-
-    while True:
-        try:
-            await asyncio.sleep(30)  # Refresh every 30 seconds
-
-            if ws_manager.client_count == 0:
-                continue  # Don't fetch if nobody is listening
-
-            if opensky:
-                flights = await opensky.get_all_states()
-                if flights:
-                    await ws_manager.broadcast_flights(flights)
-
-            if ais:
-                # Default to Rotterdam shipping lane
-                ships = await ais.get_vessels_in_area(51.9, 4.5, 200)
-                if ships:
-                    await ws_manager.broadcast_ships(ships)
-
-            if camera_client:
-                cameras = await camera_client.get_all_cameras()
-                if cameras:
-                    await ws_manager.broadcast_cameras(cameras)
-
-            # Satellites (orbital tracking)
-            sat_client = _state.get("satellite_orbital_client")
-            if sat_client:
-                satellites = await sat_client.get_all_tracked(limit=300)
-                if satellites:
-                    await ws_manager.broadcast("satellites_update", {"satellites": satellites, "count": len(satellites)})
-
-            # Military flights
-            mil_client = _state.get("military_flight_client")
-            if mil_client:
-                mil_flights = await mil_client.get_military_flights(limit=200)
-                if mil_flights:
-                    await ws_manager.broadcast("military_flights_update", {"flights": mil_flights, "count": len(mil_flights)})
-
-            # Earthquakes
-            eq_client = _state.get("earthquake_client")
-            if eq_client:
-                quakes = await eq_client.get_earthquakes(feed="m2.5_week", limit=300)
-                if quakes:
-                    await ws_manager.broadcast("earthquakes_update", {"earthquakes": quakes, "count": len(quakes)})
-
-            # Portfolio price refresh
-            portfolio = _state.get("portfolio")
-            stock_client = _state.get("stock_client")
-            if portfolio and stock_client and portfolio.positions:
-                updated = False
-                for pos in portfolio.positions:
-                    try:
-                        price = stock_client.get_current_price(pos.ticker)
-                        if price:
-                            pos.current_price = price
-                            pos.pnl = (price - pos.avg_entry_price) * pos.shares
-                            if pos.side == PositionSide.SHORT:
-                                pos.pnl = -pos.pnl
-                            updated = True
-                    except Exception:
-                        pass
-                if updated:
-                    await ws_manager.broadcast_portfolio(portfolio.model_dump())
-
-        except asyncio.CancelledError:
-            break
-        except Exception as e:
-            logger.error(f"Background data loop error: {e}")
-            await asyncio.sleep(5)
 
 
 # ──────────────────────────────────────────────
@@ -171,7 +61,6 @@ async def _agent_execution_loop(state: dict):
 
             for agent in agents:
                 try:
-                    # Get agent config
                     config = agent.get("config", {}) if isinstance(agent, dict) else getattr(agent, "config", {})
                     agent_id = agent.get("id", "") if isinstance(agent, dict) else getattr(agent, "id", "")
                     entity_id = agent.get("entity_id", "") if isinstance(agent, dict) else getattr(agent, "entity_id", "")
@@ -187,7 +76,6 @@ async def _agent_execution_loop(state: dict):
                     if not (lat and lon):
                         continue
 
-                    # Check if agent is due to run
                     interval = agent.get("run_interval_seconds", 3600) if isinstance(agent, dict) else getattr(agent, "run_interval_seconds", 3600)
                     last_run_str = agent.get("last_run") if isinstance(agent, dict) else getattr(agent, "last_run", None)
 
@@ -202,7 +90,6 @@ async def _agent_execution_loop(state: dict):
                         except Exception:
                             pass
 
-                    # Run agent: search for permits near location
                     permits = await permit_loader.search(
                         address=address,
                         latitude=lat,
@@ -211,7 +98,6 @@ async def _agent_execution_loop(state: dict):
                         limit=5,
                     )
 
-                    # Update last_run
                     if isinstance(agent, dict):
                         agent["last_run"] = now.isoformat()
                         agent["findings_count"] = agent.get("findings_count", 0) + (1 if permits else 0)
@@ -219,7 +105,6 @@ async def _agent_execution_loop(state: dict):
                         agent.last_run = now.isoformat()
                         agent.findings_count = getattr(agent, "findings_count", 0) + (1 if permits else 0)
 
-                    # Generate finding if permits found
                     if permits and ws_manager:
                         finding = {
                             "id": uuid_mod.uuid4().hex[:12],
@@ -264,66 +149,6 @@ async def lifespan(app: FastAPI):
     logger.info("  PARCL INTELLIGENCE - Initializing")
     logger.info("=" * 60)
 
-    # ── Initialize Data Clients (geospatial feeds — optional) ──
-    opensky_client = None
-    weather_client = None
-    satellite_client = None
-    ais_client = None
-    stock_client = None
-    sec_client = None
-    camera_client = None
-    satellite_orbital_client = None
-    military_flight_client = None
-    earthquake_client = None
-    orchestrator = None
-    sensor_orchestrator = None
-    vision_agent = None
-    quant_agent = None
-    rag_agent = None
-    compliance_copilot = None
-
-    if ENABLE_GEOSPATIAL_FEEDS:
-        opensky_client = OpenSkyClient()
-        weather_client = WeatherClient()
-        satellite_client = SatelliteClient()
-        ais_client = AISClient()
-        stock_client = StockDataClient()
-        sec_client = SECFilingsClient()
-        camera_client = TrafficCameraClient()
-        satellite_orbital_client = SatelliteOrbitalClient()
-        military_flight_client = MilitaryFlightClient()
-        earthquake_client = EarthquakeClient()
-        logger.info("Geospatial data clients initialized")
-    else:
-        logger.info("Geospatial feeds DISABLED — realtor MVP mode")
-
-    # ── Initialize Services ──
-    compliance_ledger = ComplianceLedger()
-    pdf_generator = AuditPDFGenerator()
-    vector_store = VectorStore()
-    logger.info("Services initialized")
-
-    # ── Initialize Agents (geospatial — optional) ──
-    if ENABLE_GEOSPATIAL_FEEDS:
-        orchestrator = ThesisOrchestrator()
-        sensor_orchestrator = SensorOrchestrator(
-            weather_client=weather_client,
-            satellite_client=satellite_client,
-            opensky_client=opensky_client,
-            ais_client=ais_client,
-            ledger=compliance_ledger,
-        )
-        vision_agent = ConsensusVisionAgent()
-        quant_agent = QuantRegressionAgent(stock_client=stock_client)
-        rag_agent = OmnichannelRAGAgent(
-            sec_client=sec_client,
-            vector_store=vector_store,
-        )
-        compliance_copilot = ComplianceCoPilot(ledger=compliance_ledger)
-        logger.info("6-Agent pipeline initialized")
-    else:
-        logger.info("Hedge fund agents DISABLED — realtor MVP mode")
-
     # ── Initialize Supabase (municipal-intel data) ──
     supabase_client = None
     if SUPABASE_URL and SUPABASE_SERVICE_KEY:
@@ -340,17 +165,16 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("No Supabase credentials — using demo data")
 
-    # ── Initialize Real Estate / Parcl Intelligence ──
+    # ── Initialize Permit Data ──
     permit_loader = PermitDataLoader(supabase=supabase_client)
     await permit_loader.load()
     permit_search = PermitSearchService(permit_loader)
     mode = "Supabase" if permit_loader.is_supabase else "demo JSON"
     logger.info(f"Parcl Intelligence: {permit_loader.count:,} permits ({mode}), RAG search ready")
 
-    # ── Initialize Scrape Scheduler (Realtor MVP) ──
+    # ── Initialize Scrape Scheduler ──
     firecrawl_client = None
     llm_extractor = None
-    scrape_scheduler = None
 
     if FIRECRAWL_API_KEY:
         firecrawl_client = FirecrawlClient(api_key=FIRECRAWL_API_KEY)
@@ -369,52 +193,19 @@ async def lifespan(app: FastAPI):
     )
     logger.info("Scrape scheduler initialized")
 
-    # ── Initialize Portfolio ──
-    portfolio = Portfolio(fund_name="Sentinel Fund")
-
     # ── Inject into route state ──
     _state.update({
-        "opensky_client": opensky_client,
-        "weather_client": weather_client,
-        "satellite_client": satellite_client,
-        "ais_client": ais_client,
-        "stock_client": stock_client,
-        "sec_client": sec_client,
-        "camera_client": camera_client,
-        "satellite_orbital_client": satellite_orbital_client,
-        "military_flight_client": military_flight_client,
-        "earthquake_client": earthquake_client,
-        "compliance_ledger": compliance_ledger,
-        "pdf_generator": pdf_generator,
-        "vector_store": vector_store,
-        "orchestrator": orchestrator,
-        "sensor_orchestrator": sensor_orchestrator,
-        "vision_agent": vision_agent,
-        "quant_agent": quant_agent,
-        "rag_agent": rag_agent,
-        "compliance_copilot": compliance_copilot,
-        "portfolio": portfolio,
-        "alerts_store": [],
-        # Parcl Intelligence
         "permit_loader": permit_loader,
         "permit_search": permit_search,
         "property_agents": [],
         "supabase_client": supabase_client,
-        # Realtor MVP
         "scrape_scheduler": scrape_scheduler,
         "firecrawl_client": firecrawl_client,
         "llm_extractor": llm_extractor,
     })
 
     # ── Start background tasks ──
-    bg_task = None
-    if ENABLE_GEOSPATIAL_FEEDS:
-        bg_task = asyncio.create_task(_background_data_loop())
-        logger.info("Geospatial background loop started")
-
     agent_loop_task = asyncio.create_task(_agent_execution_loop(_state))
-
-    # ── Start scrape scheduler (runs every 5 minutes) ──
     scheduler_task = asyncio.create_task(scrape_scheduler.start(check_interval_s=300.0))
 
     logger.info("=" * 60)
@@ -426,7 +217,6 @@ async def lifespan(app: FastAPI):
     logger.info(f"  Database:   {'Supabase REST' if supabase_client else 'demo JSON'}")
     logger.info(f"  Firecrawl:  {'active' if firecrawl_client else 'not configured'}")
     logger.info(f"  Scheduler:  active (12 towns)")
-    logger.info(f"  Geospatial: {'ON' if ENABLE_GEOSPATIAL_FEEDS else 'OFF'}")
     logger.info("=" * 60)
 
     yield
@@ -435,11 +225,9 @@ async def lifespan(app: FastAPI):
     logger.info("Parcl Intelligence shutting down...")
     scrape_scheduler.stop()
     scheduler_task.cancel()
-    if bg_task:
-        bg_task.cancel()
     agent_loop_task.cancel()
 
-    for task in [t for t in [scheduler_task, bg_task, agent_loop_task] if t]:
+    for task in [scheduler_task, agent_loop_task]:
         try:
             await task
         except asyncio.CancelledError:
@@ -455,7 +243,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Parcl Intelligence",
-    description="Real Estate Geospatial Intelligence Platform — Property, Permit, and Market Analytics",
+    description="Real Estate Data Intelligence Platform — Property, Permit, and Market Analytics for Massachusetts",
     version="2.0.0",
     lifespan=lifespan,
 )
@@ -474,11 +262,6 @@ app.include_router(router, prefix="/api")
 
 # WebSocket
 app.add_websocket_route("/ws", websocket_endpoint)
-
-# Serve audit PDFs
-audit_dir = BASE_DIR / "audit_reports"
-audit_dir.mkdir(exist_ok=True)
-app.mount("/reports", StaticFiles(directory=str(audit_dir)), name="reports")
 
 
 # ──────────────────────────────────────────────

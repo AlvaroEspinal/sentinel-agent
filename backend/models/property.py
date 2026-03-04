@@ -141,7 +141,6 @@ class Property(BaseModel):
     # Agents monitoring this property
     active_agents_count: int = 0
     nearby_permits_count: int = 0
-    nearby_cameras_count: int = 0
 
 
 # ─── Permit ───────────────────────────────────────────────────────────────────

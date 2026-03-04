@@ -1,13 +1,10 @@
 import type {
-  TrafficCameraData,
-  EarthquakeData,
   Property,
   Permit,
   Town,
   ChatResponse,
   PropertyMonitorAgent,
   AgentFinding,
-  SensorStatus,
   CoverageSummary,
   MunicipalityCoverage,
   TownDetail,
@@ -15,82 +12,8 @@ import type {
 import { useStore } from "../store/useStore";
 
 // ─── Base configuration ─────────────────────────────────────────────────────
-const PROXY_URL = "/api";
-const DIRECT_URL = `http://${window.location.hostname}:8000/api`;
-const WS_URL = `ws://${window.location.hostname}:8000/ws`;
-
-let useDirectUrl = false;
-
-// ─── HTTP helpers ───────────────────────────────────────────────────────────
-async function request<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const baseUrl = useDirectUrl ? DIRECT_URL : PROXY_URL;
-  const url = `${baseUrl}${endpoint}`;
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(options.headers as Record<string, string>),
-  };
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text().catch(() => "Unknown error");
-      throw new Error(
-        `API Error ${response.status}: ${response.statusText} - ${errorBody}`
-      );
-    }
-
-    return response.json();
-  } catch (err) {
-    // If proxy failed or request aborted, retry with direct URL
-    if (!useDirectUrl) {
-      console.warn("[API] Proxy failed, switching to direct URL:", DIRECT_URL);
-      useDirectUrl = true;
-    }
-    try {
-      const directResponse = await fetch(`${DIRECT_URL}${endpoint}`, {
-        ...options,
-        headers,
-      });
-      if (!directResponse.ok) {
-        throw new Error(`API Error ${directResponse.status}`);
-      }
-      return directResponse.json();
-    } catch {
-      throw err; // throw original error
-    }
-  }
-}
-
-// ─── API_BASE for property/permit/chat endpoints ────────────────────────────
 const API_BASE = `http://${window.location.hostname}:8000`;
-
-// ─── API Service ────────────────────────────────────────────────────────────
-export const api = {
-  // ── Traffic Cameras ─────────────────────────────────────────────────────
-  async fetchCameras(): Promise<TrafficCameraData[]> {
-    const data = await request<
-      { cameras: TrafficCameraData[] } | TrafficCameraData[]
-    >("/data/cameras");
-    return Array.isArray(data) ? data : data.cameras || [];
-  },
-
-  // ── Earthquakes (USGS) ─────────────────────────────────────────────────
-  async fetchEarthquakes(
-    feed: string = "m2.5_week"
-  ): Promise<EarthquakeData[]> {
-    const data = await request<
-      { earthquakes: EarthquakeData[] } | EarthquakeData[]
-    >(`/data/earthquakes?feed=${feed}`);
-    return Array.isArray(data) ? data : data.earthquakes || [];
-  },
-};
+const WS_URL = `ws://${window.location.hostname}:8000/ws`;
 
 // ─── Property API ───────────────────────────────────────────────────────────
 
@@ -662,37 +585,6 @@ class WebSocketService {
     const store = useStore.getState();
 
     switch (message.type) {
-      // ── Geospatial feeds ───────────────────────────────────────────────
-      case "cameras_update": {
-        const camData = message.data as
-          | { cameras?: TrafficCameraData[] }
-          | TrafficCameraData[];
-        const cameras = Array.isArray(camData)
-          ? camData
-          : camData.cameras || [];
-        store.setCameras(cameras);
-        break;
-      }
-
-      case "earthquakes_update": {
-        const eqData = message.data as
-          | { earthquakes?: EarthquakeData[] }
-          | EarthquakeData[];
-        const earthquakes = Array.isArray(eqData)
-          ? eqData
-          : eqData.earthquakes || [];
-        store.setEarthquakes(earthquakes);
-        break;
-      }
-
-      case "sensor_status":
-        store.setSensors(
-          Array.isArray(message.data)
-            ? (message.data as SensorStatus[])
-            : [message.data as SensorStatus]
-        );
-        break;
-
       // ── Real estate feeds ──────────────────────────────────────────────
       case "permits_update": {
         const permitData = message.data as { permits: Permit[] };

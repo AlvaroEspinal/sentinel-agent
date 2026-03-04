@@ -86,17 +86,12 @@ const LeftSidebar: React.FC = () => {
   // Data layer state
   const permits = useStore((s) => s.permits);
   const totalPermitsAvailable = useStore((s) => s.totalPermitsAvailable);
-  const cameras = useStore((s) => s.cameras);
   const showPermits = useStore((s) => s.showPermits);
-  const showCameras = useStore((s) => s.showCameras);
   const showFloodZones = useStore((s) => s.showFloodZones);
   const showParcels = useStore((s) => s.showParcels);
-  const showEarthquakes = useStore((s) => s.showEarthquakes);
   const togglePermits = useStore((s) => s.togglePermits);
-  const toggleCameras = useStore((s) => s.toggleCameras);
   const toggleFloodZones = useStore((s) => s.toggleFloodZones);
   const toggleParcels = useStore((s) => s.toggleParcels);
-  const toggleEarthquakes = useStore((s) => s.toggleEarthquakes);
 
   // Local UI state
   const [dataLayersOpen, setDataLayersOpen] = useState(true);
@@ -114,13 +109,6 @@ const LeftSidebar: React.FC = () => {
       onToggle: togglePermits,
     },
     {
-      icon: <Camera className="w-3.5 h-3.5 text-purple-400" />,
-      label: "Cameras",
-      count: cameras.length,
-      isOn: showCameras,
-      onToggle: toggleCameras,
-    },
-    {
       icon: <Waves className="w-3.5 h-3.5 text-sky-400" />,
       label: "Flood Zones",
       count: null,
@@ -133,13 +121,6 @@ const LeftSidebar: React.FC = () => {
       count: null,
       isOn: showParcels,
       onToggle: toggleParcels,
-    },
-    {
-      icon: <Activity className="w-3.5 h-3.5 text-red-400" />,
-      label: "Earthquakes",
-      count: null,
-      isOn: showEarthquakes,
-      onToggle: toggleEarthquakes,
     },
   ];
 

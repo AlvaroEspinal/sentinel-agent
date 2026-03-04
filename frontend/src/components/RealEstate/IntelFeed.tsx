@@ -8,8 +8,6 @@ import {
   Map,
   Home,
   TrendingUp,
-  Satellite,
-  Camera,
 } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import type { FindingType, AlertSeverity, AgentFinding } from "../../types";
@@ -24,8 +22,6 @@ const FINDING_ICONS: Record<FindingType, React.ElementType> = {
   LISTING_CHANGE: Home,
   MARKET_SHIFT: TrendingUp,
   MEETING_MENTION: FileText,
-  SATELLITE_CHANGE: Satellite,
-  CAMERA_ANOMALY: Camera,
 };
 
 // ─── Finding type badge colors ─────────────────────────────────────────────

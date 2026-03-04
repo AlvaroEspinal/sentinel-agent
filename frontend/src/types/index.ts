@@ -13,9 +13,7 @@ export type FindingType =
   | "ZONING_CHANGE"
   | "LISTING_CHANGE"
   | "MARKET_SHIFT"
-  | "MEETING_MENTION"
-  | "SATELLITE_CHANGE"
-  | "CAMERA_ANOMALY";
+  | "MEETING_MENTION";
 
 export type FindingSeverity = AlertSeverity;
 
@@ -70,54 +68,6 @@ export type ListingStatus =
 // ─── Property Agent Status ─────────────────────────────────────────────────
 export type PropertyAgentStatus = "active" | "paused" | "stopped" | "error";
 
-// ─── Geospatial: Traffic Camera ────────────────────────────────────────────
-export interface TrafficCameraData {
-  id: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-  source: string;
-  status: "online" | "offline" | "degraded";
-  image_url: string;
-  embed_url: string;
-  category: string;
-  country: string;
-  region: string;
-  last_updated: string;
-  refresh_interval?: number;
-}
-
-// ─── Geospatial: Earthquake ────────────────────────────────────────────────
-export interface EarthquakeData {
-  id: string;
-  magnitude: number;
-  latitude: number;
-  longitude: number;
-  depth_km: number;
-  place: string;
-  time: number;
-  tsunami: boolean;
-  significance: number;
-  alert_level: string | null;
-  severity: string;
-  event_type: string;
-  url: string;
-  magnitude_type: string;
-}
-
-// ─── Geospatial: GeoTarget ────────────────────────────────────────────────
-export interface GeoTarget {
-  id: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-  radius_km: number;
-  target_type: string;
-  asset_ticker: string;
-  monitoring_sensors: string[];
-  active: boolean;
-}
-
 // ─── Camera Target ─────────────────────────────────────────────────────────
 export interface CameraTarget {
   lat: number;
@@ -127,19 +77,8 @@ export interface CameraTarget {
   pitch: number;
 }
 
-// ─── Sensor Status ─────────────────────────────────────────────────────────
-export interface SensorStatus {
-  name: string;
-  status: "online" | "offline" | "degraded";
-  last_ping: string;
-  latency_ms: number;
-}
-
 // ─── WebSocket Message Types ───────────────────────────────────────────────
 export type WSMessageType =
-  | "cameras_update"
-  | "earthquakes_update"
-  | "sensor_status"
   | "connection_established"
   | "permits_update"
   | "property_update"
@@ -205,7 +144,6 @@ export interface Property {
   updated_at: string;
   active_agents_count: number;
   nearby_permits_count: number;
-  nearby_cameras_count: number;
 }
 
 // ─── Permit ────────────────────────────────────────────────────────────────

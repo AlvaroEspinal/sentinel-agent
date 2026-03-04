@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback, Component, ErrorInfo, ReactNode, Suspense, lazy } from "react";
 import { useWebSocket } from "./hooks/useWebSocket";
-import { api, listPropertyAgents, searchPermits, getPermitTowns, getCoverageSummary, listTowns, getTargetTowns } from "./services/api";
+import { listPropertyAgents, searchPermits, getPermitTowns, getCoverageSummary, listTowns, getTargetTowns } from "./services/api";
 import { useStore } from "./store/useStore";
 
 // ── Lazy load components ──
@@ -9,9 +9,6 @@ const LandingPage = lazy(() => import("./components/Dashboard/LandingPage"));
 const TownDashboard = lazy(() => import("./components/Town/TownDashboard"));
 const PropertySearch = lazy(() => import("./components/RealEstate/PropertySearch"));
 const MapOverlay = lazy(() => import("./components/Globe/MapOverlay"));
-
-// Keep legacy components available for map overlay
-const CameraPreviewPanel = lazy(() => import("./components/Dashboard/CameraPreviewPanel"));
 
 // ── Generic Error Boundary ──
 interface EBProps { children: ReactNode; fallback?: ReactNode; name?: string }
@@ -91,8 +88,6 @@ const App: React.FC = () => {
   // Initialize WebSocket connection
   useWebSocket();
 
-  const setCameras = useStore((s) => s.setCameras);
-  const setEarthquakes = useStore((s) => s.setEarthquakes);
   const setPropertyAgents = useStore((s) => s.setPropertyAgents);
   const setPermits = useStore((s) => s.setPermits);
   const setTotalPermitsAvailable = useStore((s) => s.setTotalPermitsAvailable);
@@ -113,8 +108,6 @@ const App: React.FC = () => {
 
     // Fetch other data in parallel (non-blocking)
     Promise.all([
-      api.fetchCameras().then(setCameras).catch(() => {}),
-      api.fetchEarthquakes().then(setEarthquakes).catch(() => {}),
       listPropertyAgents().then(({ agents }) => setPropertyAgents(agents)).catch(() => {}),
       searchPermits({ limit: 500 }).then((r) => {
         setPermits(r.permits);
@@ -124,7 +117,7 @@ const App: React.FC = () => {
       getCoverageSummary().then(setCoverageSummary).catch(() => {}),
       listTowns({ limit: 400 }).then(({ towns }) => setTownDetails(towns)).catch(() => {}),
     ]);
-  }, [setCameras, setEarthquakes, setPropertyAgents, setPermits, setTotalPermitsAvailable, setTowns, setCoverageSummary, setTownDetails, setTargetTowns]);
+  }, [setPropertyAgents, setPermits, setTotalPermitsAvailable, setTowns, setCoverageSummary, setTownDetails, setTargetTowns]);
 
   useEffect(() => {
     fetchInitialData();

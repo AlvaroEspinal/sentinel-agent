@@ -1,8 +1,5 @@
 import { create } from "zustand";
 import type {
-  TrafficCameraData,
-  EarthquakeData,
-  SensorStatus,
   ViewMode,
   LeftPanelTab,
   CameraTarget,
@@ -64,11 +61,6 @@ export const MARKET_NAMES = Object.keys(MARKETS);
 
 // ─── Store State ───────────────────────────────────────────────────────────
 interface ParclState {
-  // Geospatial data
-  cameras: TrafficCameraData[];
-  earthquakes: EarthquakeData[];
-  sensors: SensorStatus[];
-
   // Real estate data
   selectedProperty: Property | null;
   propertySearchResults: Property[];
@@ -102,14 +94,10 @@ interface ParclState {
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
   leftPanelTab: LeftPanelTab;
-  showCameras: boolean;
-  showEarthquakes: boolean;
   showPermits: boolean;
   showProperties: boolean;
   showFloodZones: boolean;
   showParcels: boolean;
-  showCameraGrid: boolean;
-  selectedCamera: TrafficCameraData | null;
   searchQuery: string;
   isSearching: boolean;
   isChatLoading: boolean;
@@ -118,11 +106,6 @@ interface ParclState {
   activeCity: string;
   activePOIIndex: number;
   cameraTarget: CameraTarget | null;
-
-  // ── Actions: Data setters ────────────────────────────────────────────────
-  setCameras: (cameras: TrafficCameraData[]) => void;
-  setEarthquakes: (earthquakes: EarthquakeData[]) => void;
-  setSensors: (sensors: SensorStatus[]) => void;
 
   // ── Actions: Real estate data ────────────────────────────────────────────
   setSelectedProperty: (property: Property | null) => void;
@@ -150,14 +133,10 @@ interface ParclState {
   setLeftPanelTab: (tab: LeftPanelTab) => void;
   setLeftPanelOpen: (open: boolean) => void;
   setRightPanelOpen: (open: boolean) => void;
-  toggleCameras: () => void;
-  toggleEarthquakes: () => void;
   togglePermits: () => void;
   toggleProperties: () => void;
   toggleFloodZones: () => void;
   toggleParcels: () => void;
-  toggleCameraGrid: () => void;
-  selectCamera: (camera: TrafficCameraData | null) => void;
   setSearchQuery: (query: string) => void;
   setIsSearching: (searching: boolean) => void;
 
@@ -194,11 +173,6 @@ interface ParclState {
 
 // ─── Store Implementation ──────────────────────────────────────────────────
 export const useStore = create<ParclState>((set, get) => ({
-  // ── Initial geospatial data ──────────────────────────────────────────────
-  cameras: [],
-  earthquakes: [],
-  sensors: [],
-
   // ── Initial real estate data ─────────────────────────────────────────────
   selectedProperty: null,
   propertySearchResults: [],
@@ -232,14 +206,10 @@ export const useStore = create<ParclState>((set, get) => ({
   leftPanelOpen: false,
   rightPanelOpen: true,
   leftPanelTab: "summary",
-  showCameras: true,
-  showEarthquakes: true,
   showPermits: true,
   showProperties: true,
   showFloodZones: false,
   showParcels: false,
-  showCameraGrid: false,
-  selectedCamera: null,
   searchQuery: "",
   isSearching: false,
   isChatLoading: false,
@@ -248,15 +218,6 @@ export const useStore = create<ParclState>((set, get) => ({
   activeCity: "Boston",
   activePOIIndex: 0,
   cameraTarget: null,
-
-  // ── Data setters ─────────────────────────────────────────────────────────
-  setCameras: (cameras) =>
-    set({ cameras: Array.isArray(cameras) ? cameras : [] }),
-
-  setEarthquakes: (earthquakes) =>
-    set({ earthquakes: Array.isArray(earthquakes) ? earthquakes : [] }),
-
-  setSensors: (sensors) => set({ sensors }),
 
   // ── Real estate data actions ─────────────────────────────────────────────
   setSelectedProperty: (property) => set({ selectedProperty: property }),
@@ -311,12 +272,6 @@ export const useStore = create<ParclState>((set, get) => ({
 
   setRightPanelOpen: (open) => set({ rightPanelOpen: open }),
 
-  toggleCameras: () =>
-    set((state) => ({ showCameras: !state.showCameras })),
-
-  toggleEarthquakes: () =>
-    set((state) => ({ showEarthquakes: !state.showEarthquakes })),
-
   togglePermits: () =>
     set((state) => ({ showPermits: !state.showPermits })),
 
@@ -328,22 +283,6 @@ export const useStore = create<ParclState>((set, get) => ({
 
   toggleParcels: () =>
     set((state) => ({ showParcels: !state.showParcels })),
-
-  toggleCameraGrid: () =>
-    set((state) => ({ showCameraGrid: !state.showCameraGrid })),
-
-  selectCamera: (camera) => {
-    set({ selectedCamera: camera });
-    if (camera && camera.latitude && camera.longitude) {
-      get().flyToLocation({
-        lat: camera.latitude,
-        lon: camera.longitude,
-        altitude: 50000,
-        heading: 0,
-        pitch: -45,
-      });
-    }
-  },
 
   setSearchQuery: (query) => set({ searchQuery: query }),
 

@@ -5,8 +5,6 @@ import {
   Server,
   Database,
   Building2,
-  Camera,
-  Activity,
   Bot,
   Monitor,
 } from "lucide-react";
@@ -42,8 +40,6 @@ const StatusBar: React.FC = () => {
   const permits = useStore((s) => s.permits);
   const totalPermitsAvailable = useStore((s) => s.totalPermitsAvailable);
   const activeTown = useStore((s) => s.activeTown);
-  const cameras = useStore((s) => s.cameras);
-  const earthquakes = useStore((s) => s.earthquakes);
   const propertyAgents = useStore((s) => s.propertyAgents);
   const leftPanelOpen = useStore((s) => s.leftPanelOpen);
 
@@ -56,15 +52,14 @@ const StatusBar: React.FC = () => {
       setThroughput(
         Math.round(
           (permits.length * 0.4 +
-            cameras.length * 0.3 +
-            earthquakes.length * 0.2 +
+            propertyAgents.length * 0.3 +
             Math.random() * 10) *
             100
         ) / 100
       );
     }, 2000);
     return () => clearInterval(interval);
-  }, [permits.length, cameras.length, earthquakes.length]);
+  }, [permits.length, propertyAgents.length]);
 
   return (
     <div
@@ -115,26 +110,6 @@ const StatusBar: React.FC = () => {
             <Building2 className="w-3 h-3" />
             <span className="text-[9px] font-mono">
               {(totalPermitsAvailable || permits.length).toLocaleString()} permits{activeTown ? ` (${activeTown})` : ""}
-            </span>
-          </div>
-
-          <Divider />
-
-          {/* Cameras online */}
-          <div className="flex items-center gap-1.5 text-parcl-text-muted">
-            <Camera className="w-3 h-3" />
-            <span className="text-[9px] font-mono">
-              {cameras.length} cameras
-            </span>
-          </div>
-
-          <Divider />
-
-          {/* Earthquakes tracked */}
-          <div className="flex items-center gap-1.5 text-parcl-text-muted">
-            <Activity className="w-3 h-3" />
-            <span className="text-[9px] font-mono">
-              {earthquakes.length} quakes
             </span>
           </div>
 

@@ -1,12 +1,10 @@
 """WebSocket manager for real-time data streaming to the dashboard."""
 from __future__ import annotations
 
-import json
 import asyncio
-from typing import Optional
 from datetime import datetime
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
 from loguru import logger
 
 
@@ -14,11 +12,8 @@ class ConnectionManager:
     """Manages WebSocket connections for real-time dashboard updates.
 
     Supports broadcasting to all connected clients:
-    - Flight position updates (ADSB)
-    - Ship position updates (AIS)
-    - Alert notifications
-    - Portfolio sync events
-    - Sensor status changes
+    - Agent findings and alerts
+    - Property monitoring updates
     """
 
     def __init__(self):
@@ -31,11 +26,10 @@ class ConnectionManager:
         self.active_connections.append(websocket)
         logger.info(f"WebSocket connected. Active: {len(self.active_connections)}")
 
-        # Send initial connection confirmation
         await self._send_to(websocket, {
             "type": "connection_established",
             "timestamp": datetime.utcnow().isoformat(),
-            "message": "Sentinel Agent connected",
+            "message": "Parcl Intelligence connected",
         })
 
     def disconnect(self, websocket: WebSocket):
@@ -69,26 +63,6 @@ class ConnectionManager:
     async def broadcast_alert(self, alert_data: dict):
         """Broadcast a new alert to all clients."""
         await self.broadcast("alert", alert_data)
-
-    async def broadcast_flights(self, flights: list[dict]):
-        """Broadcast updated flight positions."""
-        await self.broadcast("flights_update", {"flights": flights, "count": len(flights)})
-
-    async def broadcast_ships(self, ships: list[dict]):
-        """Broadcast updated ship positions."""
-        await self.broadcast("ships_update", {"ships": ships, "count": len(ships)})
-
-    async def broadcast_portfolio(self, portfolio_data: dict):
-        """Broadcast portfolio sync event."""
-        await self.broadcast("portfolio_sync", portfolio_data)
-
-    async def broadcast_cameras(self, cameras: list[dict]):
-        """Broadcast updated camera feeds."""
-        await self.broadcast("cameras_update", {"cameras": cameras, "count": len(cameras)})
-
-    async def broadcast_sensor_status(self, status: dict):
-        """Broadcast sensor status update."""
-        await self.broadcast("sensor_status", status)
 
     async def _send_to(self, websocket: WebSocket, data: dict):
         """Send data to a specific client."""

@@ -67,20 +67,13 @@ const DataLayerPanel: React.FC = () => {
   const permits = useStore((s) => s.permits);
   const totalPermitsAvailable = useStore((s) => s.totalPermitsAvailable);
   const propertySearchResults = useStore((s) => s.propertySearchResults);
-  const cameras = useStore((s) => s.cameras);
-  const earthquakes = useStore((s) => s.earthquakes);
-
   const showPermits = useStore((s) => s.showPermits);
   const showProperties = useStore((s) => s.showProperties);
-  const showCameras = useStore((s) => s.showCameras);
   const showFloodZones = useStore((s) => s.showFloodZones);
-  const showEarthquakes = useStore((s) => s.showEarthquakes);
 
   const togglePermits = useStore((s) => s.togglePermits);
   const toggleProperties = useStore((s) => s.toggleProperties);
-  const toggleCameras = useStore((s) => s.toggleCameras);
   const toggleFloodZones = useStore((s) => s.toggleFloodZones);
-  const toggleEarthquakes = useStore((s) => s.toggleEarthquakes);
 
   const activeCity = useStore((s) => s.activeCity);
   const setActiveCity = useStore((s) => s.setActiveCity);
@@ -163,25 +156,11 @@ const DataLayerPanel: React.FC = () => {
       onToggle: toggleProperties,
     },
     {
-      icon: <Camera className="w-3.5 h-3.5 text-purple-400" />,
-      label: "Cameras",
-      count: cameras.length,
-      isOn: showCameras,
-      onToggle: toggleCameras,
-    },
-    {
       icon: <Waves className="w-3.5 h-3.5 text-sky-400" />,
       label: "Flood Zones",
       count: null,
       isOn: showFloodZones,
       onToggle: toggleFloodZones,
-    },
-    {
-      icon: <Activity className="w-3.5 h-3.5 text-red-400" />,
-      label: "Earthquakes",
-      count: earthquakes.length,
-      isOn: showEarthquakes,
-      onToggle: toggleEarthquakes,
     },
   ];
 

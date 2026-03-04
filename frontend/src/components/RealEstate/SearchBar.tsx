@@ -85,7 +85,6 @@ const SearchBar: React.FC = () => {
                   updated_at: new Date().toISOString(),
                   active_agents_count: 0,
                   nearby_permits_count: 1,
-                  nearby_cameras_count: 0,
                 });
               }
             }
@@ -129,7 +128,6 @@ const SearchBar: React.FC = () => {
               updated_at: new Date().toISOString(),
               active_agents_count: 0,
               nearby_permits_count: 0,
-              nearby_cameras_count: 0,
             }];
           }
         } catch {
