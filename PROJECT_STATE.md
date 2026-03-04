@@ -1,6 +1,6 @@
 # Parcl Intelligence — Project State
 
-**Last Updated:** March 4, 2026
+**Last Updated:** March 4, 2026 (Session 2)
 **Repo:** https://github.com/AlvaroEspinal/sentinel-agent
 **Branch:** `main`
 
@@ -11,7 +11,7 @@
 Parcl Intelligence is a **real estate data intelligence platform** targeting affluent Massachusetts towns. It combines:
 
 - **CesiumJS 3D globe** with parcel overlays, flood zone layers, and permit pins
-- **FastAPI backend** with 34+ REST endpoints and WebSocket real-time streaming
+- **FastAPI backend** with 34+ REST endpoints and polling-based notification system
 - **React + TypeScript + Zustand** frontend with a realtor-focused dashboard
 - **Supabase** (PostgreSQL) for 125K+ permits, property transfers, municipal documents
 - **Automated scraping pipeline** pulling permits, meeting minutes, and sales data from 12 target towns
@@ -30,7 +30,8 @@ The platform was originally a surveillance/hedge fund geospatial viewer ("Sentin
 | 3D Globe | CesiumJS + Resium, ArcGIS imagery providers |
 | Scraping | Firecrawl API, Socrata API, ViewpointCloud API, Nominatim geocoder |
 | AI/LLM | Anthropic Claude API (document extraction, permit analysis) |
-| Deployment | Vercel (frontend), backend not yet deployed |
+| Deployment | Vercel (frontend + backend serverless), Vercel Cron Jobs |
+| MCP Servers | Supabase MCP, Vercel MCP (installed, authenticated) |
 
 ---
 
@@ -72,21 +73,31 @@ Each town has boards configured: Select Board, Planning Board, ZBA, Conservation
 | Supabase Permits | `GET /api/permits/search` | 125K+ permits (Somerville 64K, Cambridge 61K) |
 | Viewport Pins | `GET /api/permits/viewport?west=&south=&east=&north=` | Dynamic permit pins on globe |
 
-### Scraping Pipeline (Built, Needs Deployment)
+### Scraping Pipeline (All Components Production-Ready)
+
+| Component | File | Status | Notes |
+|-----------|------|--------|-------|
+| ScrapeScheduler | `scheduler.py` | ✅ Production | Background loop, 3 pipelines, deduplication |
+| Socrata Connector | `socrata.py` | ✅ Production | Cambridge (10 datasets), Somerville (1 dataset) |
+| ViewpointCloud Connector | `viewpointcloud.py` | ✅ Production | Newton (`newtonma` slug) |
+| Firecrawl Client | `firecrawl_client.py` | ✅ Production | Crawl + scrape + batch, retry logic, JS rendering |
+| LLM Extractor | `llm_extractor.py` | ✅ Production | Claude-powered extraction from meeting minutes |
+| Meeting Minutes Scraper | `meeting_minutes.py` | ✅ Production | PDF download + pdfplumber + LLM extraction |
+| Permit Normalizer | `normalize.py` | ✅ Production | Normalizes Boston, Cambridge, Somerville formats |
+| Firecrawl Permit Extraction | in `scheduler.py` | ✅ Production | Crawl town portal + LLM extract permit records |
+| Town Config Registry | `town_config.py` | ✅ Production | 12 towns with URLs, boards, schedules |
+| Permit Loader | `permit_loader.py` | ✅ Production | 125K permits from Supabase + JSON fallback |
+| MassGIS Parcels | `massgis_parcels.py` | ✅ Production | Parcel queries, recent sales, owner search |
+| Batch Geocoder Script | `batch_geocode_permits.py` | ✅ Built | ~8% of Somerville done, Cambridge not started |
+
+### Notification System (Replaced WebSocket)
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| ScrapeScheduler | Built | Background loop every 300s, checks 12 towns |
-| Socrata Connector | Built | Cambridge (10 datasets), Somerville (1 dataset) |
-| ViewpointCloud Connector | Built | Newton (`newtonma` slug) |
-| Firecrawl Client | Built | Crawl + scrape + batch, rate limiting |
-| LLM Extractor | Built | Claude-powered extraction from meeting minutes |
-| Meeting Minutes Scraper | Built | PDF download + pdfplumber + LLM extraction |
-| Permit Normalizer | Built | Normalizes Boston, Cambridge, Somerville formats |
-| Firecrawl Permit Extraction | Built | Crawl town portal + LLM extract permit records |
-| `permits` table migration | Written | `002_permits_table.sql` — not yet run |
-| Town Config Registry | Built | 12 towns with URLs, boards, schedules |
-| Batch Geocoder Script | Built | ~8% of Somerville done, Cambridge not started |
+| `POST /api/notifications/check` | ✅ Built | Cron-triggered, checks tracked listings for new activity |
+| `GET /api/notifications` | ✅ Built | Frontend fetches on page load |
+| Vercel Cron Job | ✅ Configured | Runs every 6 hours (`vercel.json`) |
+| WebSocket | ❌ Removed | Deleted `websocket.py`, `useWebSocket.ts`, agent loop |
 
 ### Frontend Features
 
@@ -105,6 +116,7 @@ Each town has boards configured: Select Board, Planning Board, ZBA, Conservation
 | Property monitoring agents (CRUD) | Working |
 | RAG chat for permit Q&A | Working |
 | Map View toggle (globe as overlay) | Working |
+| Notification fetching on page load | Working |
 
 ### Globe Overlays (DATA LAYERS)
 
@@ -114,50 +126,70 @@ Each town has boards configured: Select Board, Planning Board, ZBA, Conservation
 | Parcels (MA) | MassGIS Level3 Parcels MapServer | Working (alpha 0.55, zoom 15-20) |
 | Permits | Supabase viewport query | Working (color-coded by type) |
 
-### Deployment
+### MCP Servers
 
-| Target | Status |
-|--------|--------|
-| Vercel (frontend) | Deployed, TypeScript strict build passes |
-| Backend (Railway/Render/Fly.io) | Not yet deployed |
+| Server | URL | Scope | Status |
+|--------|-----|-------|--------|
+| Supabase | `https://mcp.supabase.com/mcp` | Global + Project | ✅ Installed & Authenticated |
+| Vercel | `https://mcp.vercel.com` | Global + Project | ✅ Installed & Authenticated |
+| GitHub | `https://api.githubcopilot.com/mcp` | — | ❌ Skipped (buggy auth) |
+
+### Deployment Config
+
+| Target | Status | Config |
+|--------|--------|--------|
+| Vercel (frontend) | ✅ Deployed | Root: `frontend`, Build: `npm run build`, Output: `dist` |
+| Vercel (backend serverless) | ✅ Configured | `api/index.py` entry point, `vercel.json` with rewrites |
+| Vercel Cron Jobs | ✅ Configured | `POST /api/notifications/check` every 6 hours |
 
 ---
 
 ## What Is Left To Do
 
-### Immediate (To Activate Scraping)
+### IMMEDIATE NEXT STEP: Run Supabase Migrations
 
-1. **Run `002_permits_table.sql`** in Supabase SQL Editor
-2. **Deploy backend** to Railway/Render/Fly.io so scheduler runs
-3. **Test scraping**: `POST /api/scrape/trigger/cambridge?source_type=permits`
+The scraping code is 100% built but **the new database tables don't exist yet in Supabase**. Two SQL files need to be run in order:
+
+1. **`backend/database/migrations/000_combined_bootstrap.sql`** — Creates ALL tables (towns, properties, permits, listings, property_agents, agent_findings, documents, portfolios, municipal_documents, property_transfers, scrape_jobs) + all indexes. Safe to re-run (uses `IF NOT EXISTS`).
+
+2. **`backend/database/migrations/003_seed_target_towns.sql`** — Inserts/upserts the 12 target towns with all URLs, portal types, populations, etc. Uses `ON CONFLICT DO UPDATE` so it's re-runnable.
+
+**How to run:** Use the Supabase MCP tools (`execute_sql` or similar) OR paste into Supabase Dashboard → SQL Editor → New Query → Run.
+
+### After Migrations
+
+3. **Start backend locally** — `cd backend && python3 main.py` — scheduler will begin pulling data
+4. **Test single-town scrape** — `POST /api/scrape/trigger/newton?source_type=permits`
+5. **Verify data appears** — `GET /api/scraped-permits/by-town/newton`
+6. **Deploy backend to Vercel** — Push to trigger Vercel build (config already in `vercel.json`)
 
 ### Data Pipeline
 
-4. **Resume batch geocoding** — 124.5K permits at 0,0 need coordinates
-5. **Run scraping for all 12 towns** — meeting minutes + property transfers + permits
-6. **Add Socrata configs for target towns** — check if any of the 12 use Socrata (currently only Cambridge/Somerville)
+7. **Resume batch geocoding** — 124.5K permits at 0,0 need coordinates
+8. **Run scraping for all 12 towns** — meeting minutes + property transfers + permits
+9. **Add Socrata configs for target towns** — check if any of the 12 use Socrata
 
 ### Frontend Polish
 
-7. **Wire scraped permits to UI** — display `/api/scraped-permits` in town dashboard
-8. **Meeting minutes viewer** — show extracted mentions, decisions, keywords
-9. **Property transfer trends** — charts showing price/sqft over time per town
-10. **Watchlist notifications** — alert when tracked properties have new permits or mentions
-11. **Mobile responsive** — current layout is desktop-only
+10. **Wire scraped permits to UI** — display in town dashboard
+11. **Meeting minutes viewer** — show extracted mentions, decisions, keywords
+12. **Property transfer trends** — charts showing price/sqft over time per town
+13. **Watchlist notifications** — alert when tracked properties have new permits/mentions
+14. **Mobile responsive** — current layout is desktop-only
 
 ### Advanced Data Sources (Phase 3)
 
-12. **Zoning bylaws** — Firecrawl from town websites / ecode360.com
-13. **MEPA environmental filings** — `eeaonline.eea.state.ma.us`
-14. **Tax delinquency lists** — town treasurer PDFs
-15. **Registry of Deeds links** — construct masslandrecords.com URLs from book/page
-16. **Conservation restrictions** — MassDEP + town pages
-17. **Capital improvement plans** — town budget PDFs
+15. **Zoning bylaws** — Firecrawl from town websites / ecode360.com
+16. **MEPA environmental filings** — `eeaonline.eea.state.ma.us`
+17. **Tax delinquency lists** — town treasurer PDFs
+18. **Registry of Deeds links** — construct masslandrecords.com URLs from book/page
+19. **Conservation restrictions** — MassDEP + town pages
+20. **Capital improvement plans** — town budget PDFs
 
 ### Backend Cleanup
 
-18. **Remove unused API keys** from `config.py` (OPENSKY, POLYGON, PLANET, CAPELLA, etc.)
-19. **Remove unused Python deps** from `requirements.txt` (yfinance, scipy, cryptography, etc.)
+21. **Remove unused API keys** from `config.py` (OPENSKY, POLYGON, PLANET, CAPELLA, etc.)
+22. **Remove unused Python deps** from `requirements.txt` (yfinance, scipy, cryptography, etc.)
 
 ---
 
@@ -167,18 +199,25 @@ Each town has boards configured: Select Board, Planning Board, ZBA, Conservation
 
 ```
 sentinel-agent/
+  .mcp.json                          # Supabase + Vercel MCP config
+  vercel.json                        # Combined frontend + backend deployment config
+  api/
+    index.py                         # Vercel serverless entry point (imports FastAPI app)
+    requirements.txt                 # Python deps for Vercel serverless
   backend/
     main.py                         # FastAPI app, startup/shutdown, scheduler init
     config.py                       # All env vars and API keys
     api/
-      routes.py                     # 34+ REST endpoints
-      websocket.py                  # WebSocket connection manager
+      routes.py                     # 34+ REST endpoints + notification endpoints
     database/
       supabase_client.py            # Async PostgREST client (fetch, insert, update, delete)
       postgres.py                   # PostgreSQL connection (legacy)
+      schema.sql                    # Base schema reference
       migrations/
+        000_combined_bootstrap.sql  # ALL tables + indexes (run this in Supabase)
         001_realtor_mvp.sql         # municipal_documents, property_transfers, scrape_jobs
-        002_permits_table.sql       # Dedicated permits table (not yet run)
+        002_permits_table.sql       # Dedicated permits table
+        003_seed_target_towns.sql   # 12 target towns seed data (run after 000)
     models/
       property.py                   # Pydantic models for all entities
     services/
@@ -190,7 +229,7 @@ sentinel-agent/
       permit_loader.py              # Loads 125K permits from Supabase
       connectors/
         town_config.py              # 12 target towns registry
-        massgis_parcels.py          # MassGIS ArcGIS parcel queries
+        massgis_parcels.py          # MassGIS ArcGIS parcel queries + recent sales
         massgis_comps.py            # Comparable sales finder
         fema_flood.py               # FEMA NFHL flood zones
         zoning_atlas.py             # USE_CODE zoning classification
@@ -208,12 +247,11 @@ sentinel-agent/
       __init__.py                   # Empty (hedge fund agents removed)
   frontend/
     src/
-      App.tsx                       # Root app, view routing
+      App.tsx                       # Root app, view routing, notification fetch on mount
       main.tsx                      # React entry
       types/index.ts                # All TypeScript interfaces
       store/useStore.ts             # Zustand global state
-      services/api.ts               # 30+ API client functions
-      hooks/useWebSocket.ts         # WebSocket lifecycle hook
+      services/api.ts               # 30+ API client functions + getNotifications()
       components/
         Globe/
           CesiumGlobe.tsx           # Globe container
@@ -223,10 +261,13 @@ sentinel-agent/
           EntityLayer.tsx           # Entity rendering placeholder
         Dashboard/
           LandingPage.tsx           # Main dashboard view
+        Layout/
+          Sidebar.tsx               # Sidebar navigation
         Town/
           TownDashboard.tsx         # Town analytics page
           TownCard.tsx              # Town summary card
         RealEstate/
+          PropertyDetailPage.tsx    # Full-page property detail
           PropertyDetails.tsx       # 7-tab property enrichment
           PropertyPanel.tsx         # Property panel container
           PropertySearch.tsx        # Search interface
@@ -238,7 +279,6 @@ sentinel-agent/
           TopBar.tsx                # Top navigation
           LeftSidebar.tsx           # Sidebar with towns + toggles
           DataLayerPanel.tsx        # Data layer toggles
-          Sidebar.tsx               # Layout sidebar
           StatusBar.tsx             # Status indicators
           ThemeToggle.tsx           # Dark/light mode
 ```
@@ -282,6 +322,10 @@ sentinel-agent/
 - `GET /api/scraped-permits/by-town/{town_id}` — Town permits
 - `POST /api/ingestion/run` — Trigger ingestion run
 
+**Notifications**
+- `POST /api/notifications/check` — Cron-triggered: check tracked listings for activity
+- `GET /api/notifications` — Get recent findings/notifications
+
 **Coverage**
 - `GET /api/coverage/summary` — Source coverage matrix
 - `GET /api/coverage/municipality/{id}` — Single town coverage
@@ -295,7 +339,6 @@ sentinel-agent/
 - `GET /api/health` — Server health
 - `POST /api/chat` — RAG property chat
 - `POST /api/listings/enrich` — Listing enrichment
-- `WS /ws` — WebSocket (real-time findings)
 
 ### Database Tables
 
@@ -303,20 +346,23 @@ sentinel-agent/
 
 | Table | Rows | Purpose |
 |-------|------|---------|
-| `documents` | 125K+ | Permit records (pipe-delimited content) |
-| `document_locations` | ~1K | Geocoded permit coordinates |
-| `document_metadata` | 125K+ | Permit metadata |
+| `documents` | 125K+ | Permit records (pipe-delimited content) — OLD schema |
+| `document_locations` | ~1K | Geocoded permit coordinates — OLD schema |
+| `document_metadata` | 125K+ | Permit metadata — OLD schema |
 | `towns` | 351 | MA municipalities |
 | `source_requirements` | 37 | Data source types |
 | `municipality_source_coverage` | ~13K | Coverage matrix |
-| `municipal_documents` | 0* | Meeting minutes (table created, not populated yet) |
-| `property_transfers` | 0* | Sales history (table created, not populated yet) |
-| `scrape_jobs` | 0* | Scrape job tracking |
-| `permits` | 0* | Dedicated permits table (migration not yet run) |
-| `property_agents` | dynamic | Monitoring agents |
-| `agent_findings` | dynamic | Agent alerts |
+| `municipal_documents` | 0* | Meeting minutes — NEEDS MIGRATION |
+| `property_transfers` | 0* | Sales history — NEEDS MIGRATION |
+| `scrape_jobs` | 0* | Scrape job tracking — NEEDS MIGRATION |
+| `permits` | 0* | Dedicated permits table — NEEDS MIGRATION |
+| `properties` | 0* | Property records — NEEDS MIGRATION |
+| `listings` | 0* | Listing records — NEEDS MIGRATION |
+| `property_agents` | 0* | Monitoring agents — NEEDS MIGRATION |
+| `agent_findings` | 0* | Agent alerts — NEEDS MIGRATION |
+| `portfolios` | 0* | User portfolios — NEEDS MIGRATION |
 
-*Tables exist but need backend deployment to populate via scheduler.
+*Run `000_combined_bootstrap.sql` then `003_seed_target_towns.sql` in Supabase SQL Editor to create these tables.
 
 ### Environment Variables
 
@@ -325,7 +371,7 @@ sentinel-agent/
 - `ANTHROPIC_API_KEY` — LLM extraction
 - `FIRECRAWL_API_KEY` — Web scraping
 - `VITE_CESIUM_ION_ACCESS_TOKEN` — 3D globe (frontend)
-- `VITE_API_URL`, `VITE_WS_URL` — API connection (frontend)
+- `VITE_API_URL` — API connection (frontend)
 
 **Optional / unused (from legacy):**
 - OPENAI_API_KEY, POLYGON_API_KEY, PLANET_API_KEY, CAPELLA_API_KEY, WINDY_API_KEY
@@ -338,6 +384,9 @@ sentinel-agent/
 ## Git History
 
 ```
+62092e8 Remove WebSocket, add notification system, Vercel backend config
+51c2f1b Wire property detail view, clickable search results, scraped permits UI
+c72da22 Add comprehensive PROJECT_STATE.md for cross-session context
 45b68af Implement permit scraping pipeline for all portal types
 5595c01 Remove hedge fund/surveillance code — pure realtor MVP
 7b0ca60 Fix lot size display and scheduler null sale_date bug
@@ -352,13 +401,14 @@ e80bd58 Initial commit: Parcl Intelligence real estate geospatial platform
 ## Known Issues & Gotchas
 
 - **124.5K permits at 0,0** — need batch geocoding (script exists, ~8% Somerville done)
+- **New tables not created yet** — run `000_combined_bootstrap.sql` + `003_seed_target_towns.sql`
 - **Vercel `tsc` is strict** — dev server ignores type errors, always run `npx tsc --noEmit` before pushing
 - **masslandrecords.com blocks bots** — use MassGIS ownership fields instead
 - **CesiumJS HMR** — hot reload destroys viewer; CustomDataSource refs must be re-validated
 - **CORS** — backend must allow both `localhost` and `127.0.0.1` origins
 - **Nominatim rate limit** — 1 request/second, use cache
-- **`permits` table not created yet** — run `002_permits_table.sql` in Supabase first
-- **Backend not deployed** — scheduler won't run until backend is on Railway/Render/Fly.io
+- **`gh` CLI tokens expire** — re-run `gh auth login` if GitHub MCP breaks
+- **Vercel serverless limitations** — no persistent background processes, max 60s per request, no in-memory state between invocations
 
 ---
 
@@ -379,12 +429,12 @@ npm run dev           # Starts on port 3000
 
 ## How To Deploy
 
-**Frontend (Vercel):**
-- Root Directory: `frontend`
-- Build Command: `npm run build`
-- Output Directory: `dist`
-- Env vars: `VITE_CESIUM_ION_ACCESS_TOKEN`, `VITE_API_URL`, `VITE_WS_URL`
-
-**Backend (Railway/Render/Fly.io):**
-- Not yet configured
-- Needs: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `ANTHROPIC_API_KEY`, `FIRECRAWL_API_KEY`
+**Frontend + Backend (Vercel) — combined:**
+- Config: `vercel.json` at project root
+- Frontend: Root `frontend`, Build: `npm run build`, Output: `dist`
+- Backend: `api/index.py` serverless function, rewrites `/api/*`
+- Cron: `POST /api/notifications/check` every 6 hours
+- Env vars needed in Vercel:
+  - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`
+  - `ANTHROPIC_API_KEY`, `FIRECRAWL_API_KEY`
+  - `VITE_CESIUM_ION_ACCESS_TOKEN`, `VITE_API_URL`
