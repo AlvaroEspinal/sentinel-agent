@@ -8,6 +8,7 @@ const Sidebar = lazy(() => import("./components/Layout/Sidebar"));
 const LandingPage = lazy(() => import("./components/Dashboard/LandingPage"));
 const TownDashboard = lazy(() => import("./components/Town/TownDashboard"));
 const PropertySearch = lazy(() => import("./components/RealEstate/PropertySearch"));
+const PropertyDetailPage = lazy(() => import("./components/RealEstate/PropertyDetailPage"));
 const MapOverlay = lazy(() => import("./components/Globe/MapOverlay"));
 
 // ── Generic Error Boundary ──
@@ -73,6 +74,12 @@ const MainContent: React.FC = () => {
       return (
         <Safe name="PropertySearch" fallback={<PageLoader />}>
           <PropertySearch />
+        </Safe>
+      );
+    case "property":
+      return (
+        <Safe name="PropertyDetailPage" fallback={<PageLoader />}>
+          <PropertyDetailPage />
         </Safe>
       );
     default:

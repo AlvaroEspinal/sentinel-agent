@@ -19,6 +19,7 @@ const PropertySearch: React.FC = () => {
   const setParcelSearchResults = useStore((s) => s.setParcelSearchResults);
   const setParcelSearchLoading = useStore((s) => s.setParcelSearchLoading);
   const navigateToDashboard = useStore((s) => s.navigateToDashboard);
+  const navigateToProperty = useStore((s) => s.navigateToProperty);
   const targetTowns = useStore((s) => s.targetTowns);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -187,7 +188,8 @@ const PropertySearch: React.FC = () => {
             {parcelSearchResults.map((parcel: any, i: number) => (
               <div
                 key={parcel.loc_id || i}
-                className="grid grid-cols-12 gap-2 px-4 py-3 bg-slate-800/40 border border-slate-700/20 rounded-lg hover:border-blue-500/20 transition-colors text-sm cursor-pointer"
+                onClick={() => navigateToProperty(parcel)}
+                className="grid grid-cols-12 gap-2 px-4 py-3 bg-slate-800/40 border border-slate-700/20 rounded-lg hover:border-blue-500/30 hover:bg-slate-800/60 transition-colors text-sm cursor-pointer"
               >
                 <div className="col-span-3 text-white font-medium truncate">
                   {parcel.site_addr || "Unknown"}

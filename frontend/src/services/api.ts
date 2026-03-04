@@ -500,6 +500,45 @@ export async function getScrapeStats(): Promise<{
   return res.json();
 }
 
+// ─── Scraped Permits API ─────────────────────────────────────────────────────
+
+export async function getScrapedPermits(params?: {
+  town_id?: string;
+  permit_type?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{
+  permits: Array<Record<string, unknown>>;
+  total: number;
+}> {
+  const searchParams = new URLSearchParams();
+  if (params?.town_id) searchParams.set("town_id", params.town_id);
+  if (params?.permit_type) searchParams.set("permit_type", params.permit_type);
+  if (params?.status) searchParams.set("status", params.status);
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.offset) searchParams.set("offset", String(params.offset));
+  const qs = searchParams.toString();
+  const res = await fetch(`${API_BASE}/api/scraped-permits${qs ? `?${qs}` : ""}`);
+  return res.json();
+}
+
+export async function getScrapedPermitsByTown(townId: string, params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<{
+  permits: Array<Record<string, unknown>>;
+  total: number;
+  town_id: string;
+}> {
+  const searchParams = new URLSearchParams();
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.offset) searchParams.set("offset", String(params.offset));
+  const qs = searchParams.toString();
+  const res = await fetch(`${API_BASE}/api/scraped-permits/by-town/${townId}${qs ? `?${qs}` : ""}`);
+  return res.json();
+}
+
 // ─── Agent API ──────────────────────────────────────────────────────────────
 
 export async function listPropertyAgents(): Promise<{

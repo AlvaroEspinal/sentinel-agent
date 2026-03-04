@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { useStore } from "../../store/useStore";
-import { searchParcels, geocodeAddress } from "../../services/api";
+import { searchParcels, geocodeAddress, getParcelInfo } from "../../services/api";
 import TownCard from "../Town/TownCard";
 import {
   Search,
@@ -44,7 +44,26 @@ const LandingPage: React.FC = () => {
         // Address search — geocode first, then parcel lookup
         const geo = await geocodeAddress(searchQuery.trim());
         if (geo.lat && geo.lon) {
-          // For now, navigate to search view with results
+          const parcelData = await getParcelInfo(geo.lat, geo.lon);
+          if (parcelData && parcelData.loc_id) {
+            setParcelSearchResults([{
+              loc_id: parcelData.loc_id,
+              site_addr: parcelData.site_addr || searchQuery.trim(),
+              city: parcelData.city || geo.display_name?.split(",")[1]?.trim() || null,
+              owner: parcelData.owner || null,
+              last_sale_date: parcelData.last_sale_date || null,
+              last_sale_price: parcelData.last_sale_price || null,
+              total_value: parcelData.total_value || null,
+              building_area_sqft: parcelData.building_area_sqft || null,
+              lot_size_acres: parcelData.lot_size_acres || null,
+              year_built: parcelData.year_built || null,
+              use_code: parcelData.use_code || null,
+              style: (parcelData as any).style || null,
+            }] as any);
+          } else {
+            setParcelSearchResults([]);
+          }
+        } else {
           setParcelSearchResults([]);
         }
       }

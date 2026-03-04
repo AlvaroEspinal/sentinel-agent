@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useStore } from "../../store/useStore";
-import { getTownDashboard } from "../../services/api";
+import { getTownDashboard, getScrapedPermitsByTown } from "../../services/api";
 import {
   ArrowLeft,
   Building2,
@@ -15,6 +15,7 @@ import {
   MapPin,
   Calendar,
   ExternalLink,
+  Hammer,
 } from "lucide-react";
 
 const TownDashboard: React.FC = () => {
@@ -59,6 +60,27 @@ const TownDashboard: React.FC = () => {
     fetchData();
     return () => { cancelled = true; };
   }, [activeTownId, setTownDashboardData, setTownDashboardLoading]);
+
+  // Fetch scraped permits
+  const [scrapedPermits, setScrapedPermits] = useState<any[]>([]);
+  const [permitsLoading, setPermitsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!activeTownId) return;
+    let cancelled = false;
+    setPermitsLoading(true);
+    getScrapedPermitsByTown(activeTownId, { limit: 15 })
+      .then((result) => {
+        if (!cancelled) setScrapedPermits(result.permits || []);
+      })
+      .catch(() => {
+        if (!cancelled) setScrapedPermits([]);
+      })
+      .finally(() => {
+        if (!cancelled) setPermitsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [activeTownId]);
 
   // Find town config for extra info
   const townConfig = targetTowns.find((t) => t.id === activeTownId);
@@ -136,6 +158,85 @@ const TownDashboard: React.FC = () => {
             </div>
             <div className="text-slate-500 text-xs">Documents Scraped</div>
           </div>
+        </div>
+
+        {/* Scraped Permits */}
+        <div className="mb-8">
+          <h2 className="text-sm font-semibold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+            <Hammer size={14} className="text-amber-400" />
+            Recent Permits
+            {scrapedPermits.length > 0 && (
+              <span className="text-xs text-slate-500 font-normal normal-case ml-1">
+                ({scrapedPermits.length})
+              </span>
+            )}
+          </h2>
+
+          {permitsLoading ? (
+            <div className="text-center py-6">
+              <Loader2 size={20} className="mx-auto text-blue-400 animate-spin mb-2" />
+              <p className="text-slate-500 text-xs">Loading permits...</p>
+            </div>
+          ) : scrapedPermits.length > 0 ? (
+            <div className="bg-slate-800/30 border border-slate-700/20 rounded-xl overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-700/30">
+                    <th className="text-left text-slate-500 font-medium px-4 py-2">Permit #</th>
+                    <th className="text-left text-slate-500 font-medium px-4 py-2">Type</th>
+                    <th className="text-left text-slate-500 font-medium px-4 py-2">Address</th>
+                    <th className="text-left text-slate-500 font-medium px-4 py-2">Status</th>
+                    <th className="text-right text-slate-500 font-medium px-4 py-2">Value</th>
+                    <th className="text-right text-slate-500 font-medium px-4 py-2">Filed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scrapedPermits.map((p: any, i: number) => (
+                    <tr key={p.id || i} className="border-b border-slate-700/10 hover:bg-slate-800/40">
+                      <td className="px-4 py-2 font-mono text-blue-400 text-[10px]">
+                        {p.permit_number || "---"}
+                      </td>
+                      <td className="px-4 py-2 text-white">
+                        {p.permit_type || "---"}
+                      </td>
+                      <td className="px-4 py-2 text-slate-300 truncate max-w-[200px]">
+                        {p.address || "---"}
+                      </td>
+                      <td className="px-4 py-2">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                          p.status === "APPROVED" || p.status === "ISSUED" || p.status === "COMPLETED"
+                            ? "bg-emerald-500/10 text-emerald-400"
+                            : p.status === "DENIED"
+                            ? "bg-red-500/10 text-red-400"
+                            : p.status === "FILED" || p.status === "UNDER_REVIEW"
+                            ? "bg-blue-500/10 text-blue-400"
+                            : "bg-slate-500/10 text-slate-400"
+                        }`}>
+                          {p.status || "---"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-right text-slate-300">
+                        {p.estimated_value
+                          ? `$${Number(p.estimated_value).toLocaleString()}`
+                          : "---"}
+                      </td>
+                      <td className="px-4 py-2 text-right text-slate-500">
+                        {p.filed_date || "---"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="bg-slate-800/20 border border-slate-700/20 rounded-xl p-6 text-center">
+              <Hammer size={20} className="mx-auto text-slate-600 mb-2" />
+              <p className="text-slate-500 text-sm">No scraped permits yet</p>
+              <p className="text-slate-600 text-xs mt-1">
+                Run the scraper to populate permit data for this town
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Two Column: Recent Sales + Documents */}

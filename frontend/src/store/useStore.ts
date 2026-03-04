@@ -87,6 +87,7 @@ interface ParclState {
   parcelSearchResults: ParcelSearchResult[];
   parcelSearchLoading: boolean;
   showMapOverlay: boolean;
+  selectedParcel: ParcelSearchResult | null;
 
   // UI state
   viewMode: ViewMode;
@@ -164,8 +165,10 @@ interface ParclState {
   setParcelSearchResults: (results: ParcelSearchResult[]) => void;
   setParcelSearchLoading: (loading: boolean) => void;
   setShowMapOverlay: (show: boolean) => void;
+  setSelectedParcel: (parcel: ParcelSearchResult | null) => void;
   navigateToTown: (townId: string) => void;
   navigateToDashboard: () => void;
+  navigateToProperty: (parcel: ParcelSearchResult) => void;
 
   // ── Actions: Compound ────────────────────────────────────────────────────
   selectProperty: (property: Property) => void;
@@ -199,6 +202,7 @@ export const useStore = create<ParclState>((set, get) => ({
   parcelSearchResults: [],
   parcelSearchLoading: false,
   showMapOverlay: false,
+  selectedParcel: null,
 
   // ── Initial UI state ─────────────────────────────────────────────────────
   viewMode: "standard",
@@ -414,6 +418,7 @@ export const useStore = create<ParclState>((set, get) => ({
   setParcelSearchResults: (results) => set({ parcelSearchResults: results }),
   setParcelSearchLoading: (loading) => set({ parcelSearchLoading: loading }),
   setShowMapOverlay: (show) => set({ showMapOverlay: show }),
+  setSelectedParcel: (parcel) => set({ selectedParcel: parcel }),
 
   navigateToTown: (townId) => {
     set({ activeView: "town" as AppView, activeTownId: townId, townDashboardData: null, townDashboardLoading: true });
@@ -421,6 +426,10 @@ export const useStore = create<ParclState>((set, get) => ({
 
   navigateToDashboard: () => {
     set({ activeView: "dashboard" as AppView, activeTownId: null, townDashboardData: null });
+  },
+
+  navigateToProperty: (parcel) => {
+    set({ activeView: "property" as AppView, selectedParcel: parcel });
   },
 
   // ── Compound actions ─────────────────────────────────────────────────────
