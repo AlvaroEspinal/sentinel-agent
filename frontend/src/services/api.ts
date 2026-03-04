@@ -9,11 +9,9 @@ import type {
   MunicipalityCoverage,
   TownDetail,
 } from "../types";
-import { useStore } from "../store/useStore";
 
 // ─── Base configuration ─────────────────────────────────────────────────────
 const API_BASE = `http://${window.location.hostname}:8000`;
-const WS_URL = `ws://${window.location.hostname}:8000/ws`;
 
 // ─── Property API ───────────────────────────────────────────────────────────
 
@@ -574,137 +572,20 @@ export async function deletePropertyAgent(
   return res.json();
 }
 
-// ─── WebSocket Service ──────────────────────────────────────────────────────
-class WebSocketService {
-  private ws: WebSocket | null = null;
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 20;
-  private baseDelay = 1000;
+// ─── Notifications API ──────────────────────────────────────────────────────
 
-  connect(): void {
-    if (this.ws?.readyState === WebSocket.OPEN) return;
-
-    try {
-      this.ws = new WebSocket(WS_URL);
-
-      this.ws.onopen = () => {
-        console.log("[WS] Connected to Parcl Intelligence backend");
-        this.reconnectAttempts = 0;
-        useStore.getState().setConnected(true);
-      };
-
-      this.ws.onmessage = (event: MessageEvent) => {
-        try {
-          const message = JSON.parse(event.data);
-          this.handleMessage(message);
-        } catch (err) {
-          console.error("[WS] Failed to parse message:", err);
-        }
-      };
-
-      this.ws.onclose = (event) => {
-        console.log("[WS] Disconnected:", event.code, event.reason);
-        useStore.getState().setConnected(false);
-        this.scheduleReconnect();
-      };
-
-      this.ws.onerror = (error) => {
-        console.error("[WS] Error:", error);
-        useStore.getState().setConnected(false);
-      };
-    } catch (err) {
-      console.error("[WS] Connection failed:", err);
-      useStore.getState().setConnected(false);
-      this.scheduleReconnect();
-    }
-  }
-
-  private handleMessage(message: { type: string; data: unknown }): void {
-    const store = useStore.getState();
-
-    switch (message.type) {
-      // ── Real estate feeds ──────────────────────────────────────────────
-      case "permits_update": {
-        const permitData = message.data as { permits: Permit[] };
-        store.setPermits(permitData.permits);
-        break;
-      }
-
-      case "property_update": {
-        // Single property update - update in search results if present
-        const propData = message.data as { property: Property };
-        const current = store.selectedProperty;
-        if (current && current.id === propData.property.id) {
-          store.setSelectedProperty(propData.property);
-        }
-        break;
-      }
-
-      case "agent_finding": {
-        const findingData = message.data as { finding: AgentFinding };
-        store.addAgentFinding(findingData.finding);
-        break;
-      }
-
-      case "property_agent_status": {
-        const agentData = message.data as {
-          agents: PropertyMonitorAgent[];
-        };
-        store.setPropertyAgents(agentData.agents);
-        break;
-      }
-
-      // ── Connection ─────────────────────────────────────────────────────
-      case "connection_established":
-        console.log("[WS] Server confirmed connection");
-        break;
-
-      default:
-        console.warn("[WS] Unknown message type:", message.type);
-    }
-  }
-
-  private scheduleReconnect(): void {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error("[WS] Max reconnection attempts reached.");
-      return;
-    }
-
-    const delay = Math.min(
-      this.baseDelay * Math.pow(2, this.reconnectAttempts),
-      30000
-    );
-
-    console.log(
-      `[WS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts + 1})`
-    );
-
-    this.reconnectTimer = setTimeout(() => {
-      this.reconnectAttempts++;
-      this.connect();
-    }, delay);
-  }
-
-  disconnect(): void {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    if (this.ws) {
-      this.ws.close(1000, "Client disconnecting");
-      this.ws = null;
-    }
-    useStore.getState().setConnected(false);
-  }
-
-  send(data: unknown): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
-    } else {
-      console.warn("[WS] Cannot send - not connected");
-    }
-  }
+export async function getNotifications(params?: {
+  limit?: number;
+  acknowledged?: boolean;
+}): Promise<{
+  notifications: AgentFinding[];
+  total: number;
+}> {
+  const searchParams = new URLSearchParams();
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.acknowledged !== undefined)
+    searchParams.set("acknowledged", String(params.acknowledged));
+  const qs = searchParams.toString();
+  const res = await fetch(`${API_BASE}/api/notifications${qs ? `?${qs}` : ""}`);
+  return res.json();
 }
-
-export const wsService = new WebSocketService();

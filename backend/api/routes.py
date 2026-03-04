@@ -5,16 +5,13 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, HTTPException, Query
+from fastapi import APIRouter, Request, HTTPException, Query
 from loguru import logger
-
-from api.websocket import ConnectionManager
 
 # These will be injected by main.py at startup
 _state: dict = {}
 
 router = APIRouter()
-ws_manager = ConnectionManager()
 
 
 def _get(key: str):
@@ -30,7 +27,6 @@ async def health():
     return {
         "status": "ok",
         "timestamp": datetime.utcnow().isoformat(),
-        "websocket_clients": ws_manager.client_count,
         "services": {
             "permit_loader": _get("permit_loader") is not None,
             "permit_search": _get("permit_search") is not None,
@@ -1355,28 +1351,125 @@ async def get_scraped_permits_by_town(
         return {"permits": [], "total": 0, "town_id": town_id}
 
 
+
 # ──────────────────────────────────────────────
-# WebSocket handler
+# Notification Agent Endpoint (cron-triggered)
 # ──────────────────────────────────────────────
 
-async def websocket_endpoint(websocket: WebSocket):
-    """Main WebSocket endpoint for real-time data streaming."""
-    await ws_manager.connect(websocket)
+@router.post("/notifications/check")
+async def check_notifications():
+    """Cron-triggered endpoint: check tracked listings for new activity.
+
+    Queries Supabase for recent permits, sales, and meeting mentions
+    relevant to tracked properties/towns, then writes notifications
+    to the agent_findings table.
+
+    Designed to be called by Vercel Cron Jobs on a schedule.
+    """
+    import uuid as uuid_mod
+
+    supabase = _get("supabase_client")
+    permit_loader = _get("permit_loader")
+
+    if not supabase:
+        return {"status": "skipped", "reason": "no database connection", "notifications_created": 0}
+
+    created = 0
+
     try:
-        while True:
-            data = await websocket.receive_text()
-            try:
-                msg = __import__("json").loads(data)
-                msg_type = msg.get("type", "")
+        # Fetch all active monitoring agents
+        agents = _state.get("property_agents", [])
 
-                if msg_type == "ping":
-                    await websocket.send_json({"type": "pong", "timestamp": datetime.utcnow().isoformat()})
+        if not agents or not permit_loader:
+            return {"status": "ok", "notifications_created": 0, "reason": "no active agents"}
+
+        now = datetime.utcnow()
+
+        for agent in agents:
+            try:
+                config = agent.get("config", {}) if isinstance(agent, dict) else getattr(agent, "config", {})
+                agent_id = agent.get("id", "") if isinstance(agent, dict) else getattr(agent, "id", "")
+                entity_id = agent.get("entity_id", "") if isinstance(agent, dict) else getattr(agent, "entity_id", "")
+                agent_status = agent.get("status", "active") if isinstance(agent, dict) else getattr(agent, "status", "active")
+
+                if agent_status != "active":
+                    continue
+
+                lat = config.get("latitude")
+                lon = config.get("longitude")
+                address = config.get("address", "")
+                town = config.get("town", "")
+
+                if not (lat and lon):
+                    continue
+
+                # Check for recent permit activity near this property
+                permits = await permit_loader.search(
+                    address=address,
+                    latitude=lat,
+                    longitude=lon,
+                    radius_km=0.5,
+                    limit=5,
+                )
+
+                if not permits:
+                    continue
+
+                finding = {
+                    "id": uuid_mod.uuid4().hex[:12],
+                    "agent_id": agent_id,
+                    "property_id": entity_id,
+                    "finding_type": "PERMIT_ACTIVITY",
+                    "severity": "LOW" if len(permits) < 3 else "MEDIUM" if len(permits) < 10 else "HIGH",
+                    "title": f"{len(permits)} permit(s) near {address[:40] if address else 'monitored location'}",
+                    "summary": (
+                        f"Found {len(permits)} active permits within 0.5km."
+                        + (f" Most recent: {permits[0].get('description', '')[:80]}" if permits[0].get("description") else "")
+                    ),
+                    "data": {"permit_count": len(permits), "town": town},
+                    "latitude": lat,
+                    "longitude": lon,
+                    "acknowledged": False,
+                    "created_at": now.isoformat(),
+                }
+
+                # Store finding in state (and Supabase if available)
+                _state.setdefault("agent_findings", []).insert(0, finding)
+
+                try:
+                    await supabase.insert("agent_findings", finding)
+                except Exception:
+                    pass  # state-only is fine
+
+                created += 1
+
+                # Update agent last_run
+                if isinstance(agent, dict):
+                    agent["last_run"] = now.isoformat()
+                    agent["findings_count"] = agent.get("findings_count", 0) + 1
 
             except Exception as e:
-                logger.warning(f"WebSocket message parse error: {e}")
+                logger.debug("Notification check error for agent %s: %s", agent_id if 'agent_id' in dir() else '?', e)
 
-    except WebSocketDisconnect:
-        ws_manager.disconnect(websocket)
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
-        ws_manager.disconnect(websocket)
+        logger.error("Notification check error: %s", e)
+        return {"status": "error", "error": str(e), "notifications_created": created}
+
+    return {"status": "ok", "notifications_created": created}
+
+
+@router.get("/notifications")
+async def get_notifications(
+    limit: int = Query(50, ge=1, le=200),
+    acknowledged: Optional[bool] = Query(None),
+):
+    """Get recent notifications/findings for the current user."""
+    findings = _state.get("agent_findings", [])
+
+    if acknowledged is not None:
+        findings = [f for f in findings if f.get("acknowledged") == acknowledged]
+
+    return {
+        "notifications": findings[:limit],
+        "total": len(findings),
+    }

@@ -1,6 +1,5 @@
 import React, { useEffect, useCallback, Component, ErrorInfo, ReactNode, Suspense, lazy } from "react";
-import { useWebSocket } from "./hooks/useWebSocket";
-import { listPropertyAgents, searchPermits, getPermitTowns, getCoverageSummary, listTowns, getTargetTowns } from "./services/api";
+import { listPropertyAgents, searchPermits, getPermitTowns, getCoverageSummary, listTowns, getTargetTowns, getNotifications } from "./services/api";
 import { useStore } from "./store/useStore";
 
 // ── Lazy load components ──
@@ -92,9 +91,6 @@ const MainContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  // Initialize WebSocket connection
-  useWebSocket();
-
   const setPropertyAgents = useStore((s) => s.setPropertyAgents);
   const setPermits = useStore((s) => s.setPermits);
   const setTotalPermitsAvailable = useStore((s) => s.setTotalPermitsAvailable);
@@ -102,6 +98,7 @@ const App: React.FC = () => {
   const setCoverageSummary = useStore((s) => s.setCoverageSummary);
   const setTownDetails = useStore((s) => s.setTownDetails);
   const setTargetTowns = useStore((s) => s.setTargetTowns);
+  const setAgentFindings = useStore((s) => s.setAgentFindings);
 
   // Fetch initial data on mount
   const fetchInitialData = useCallback(async () => {
@@ -123,8 +120,9 @@ const App: React.FC = () => {
       getPermitTowns().then(({ towns }) => setTowns(towns)).catch(() => {}),
       getCoverageSummary().then(setCoverageSummary).catch(() => {}),
       listTowns({ limit: 400 }).then(({ towns }) => setTownDetails(towns)).catch(() => {}),
+      getNotifications({ limit: 50 }).then(({ notifications }) => setAgentFindings(notifications)).catch(() => {}),
     ]);
-  }, [setPropertyAgents, setPermits, setTotalPermitsAvailable, setTowns, setCoverageSummary, setTownDetails, setTargetTowns]);
+  }, [setPropertyAgents, setPermits, setTotalPermitsAvailable, setTowns, setCoverageSummary, setTownDetails, setTargetTowns, setAgentFindings]);
 
   useEffect(() => {
     fetchInitialData();
