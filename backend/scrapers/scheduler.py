@@ -15,6 +15,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -322,31 +323,302 @@ class ScrapeScheduler:
             await self._update_job(job_id, status="failed", error=str(exc))
             return {"town": town.id, "error": str(exc)}
 
-    async def _scrape_viewpointcloud_permits(self, town: TownConfig) -> dict:
-        """Scrape permits from ViewpointCloud portal."""
-        # TODO: Implement using existing viewpointcloud.py connector
-        logger.info("[Scheduler] ViewpointCloud scrape for %s — not yet implemented", town.name)
-        return {"found": 0, "new": 0, "note": "viewpointcloud_todo"}
-
     async def _scrape_socrata_permits(self, town: TownConfig) -> dict:
-        """Scrape permits from Socrata portal."""
-        # TODO: Use existing socrata.py connector
-        logger.info("[Scheduler] Socrata scrape for %s — not yet implemented", town.name)
-        return {"found": 0, "new": 0, "note": "socrata_todo"}
+        """Scrape permits from Socrata portal and store in Supabase."""
+        from .connectors.socrata import SocrataConnector, SOCRATA_TOWNS
+        from .connectors.normalize import normalize_batch
+
+        town_key = town.id.lower()
+        if town_key not in SOCRATA_TOWNS:
+            logger.warning("[Scheduler] No Socrata config for %s", town.name)
+            return {"found": 0, "new": 0, "note": "no_socrata_config"}
+
+        logger.info("[Scheduler] Socrata permit scrape for %s", town.name)
+
+        connector = SocrataConnector()
+        try:
+            result = await connector.pull_town(town_key)
+        finally:
+            await connector.close()
+
+        raw_permits = result.get("permits", [])
+        normalized = normalize_batch(raw_permits, town_key)
+
+        new_count = 0
+        if self.supabase and normalized:
+            for permit in normalized:
+                permit_number = permit.get("permit_number", "")
+                if not permit_number:
+                    continue
+
+                # Dedup by permit_number + town
+                existing = await self.supabase.fetch(
+                    table="permits",
+                    select="id",
+                    filters={
+                        "permit_number": f"eq.{permit_number}",
+                        "town_id": f"eq.{town.id}",
+                    },
+                    limit=1,
+                )
+
+                if not existing:
+                    await self._insert_permit(town.id, permit)
+                    new_count += 1
+
+        logger.info(
+            "[Scheduler] Socrata for %s: %d raw, %d normalized, %d new",
+            town.name, len(raw_permits), len(normalized), new_count,
+        )
+        return {"found": len(normalized), "new": new_count}
+
+    async def _scrape_viewpointcloud_permits(self, town: TownConfig) -> dict:
+        """Scrape permits from ViewpointCloud portal and store in Supabase."""
+        import httpx as httpx_lib
+        from .connectors.viewpointcloud import ViewpointCloudClient, fetch_general_settings
+
+        slug = town.viewpointcloud_slug
+        if not slug:
+            return {"found": 0, "new": 0, "note": "no_vpc_slug"}
+
+        logger.info("[Scheduler] ViewpointCloud permit scrape for %s (slug=%s)", town.name, slug)
+
+        async with httpx_lib.AsyncClient(timeout=30.0) as client:
+            api_base, settings, error = await fetch_general_settings(
+                community_slug=slug, client=client
+            )
+
+            if error or not api_base:
+                logger.warning("[Scheduler] ViewpointCloud unavailable for %s: %s", town.name, error)
+                return {"found": 0, "new": 0, "note": f"vpc_unavailable: {error}"}
+
+            vpc = ViewpointCloudClient(
+                community_slug=slug,
+                api_base=api_base,
+                client=client,
+            )
+
+            # Search for recent records via the search_results API
+            all_records = []
+            try:
+                search_results = await vpc.search_results(
+                    criteria="record", key="permit", timeout_s=30.0
+                )
+                for item in search_results:
+                    record_id = str(item.get("entityID") or "").strip()
+                    if not record_id:
+                        continue
+                    all_records.append({
+                        "record_id": record_id,
+                        "record_no": str(item.get("resultText") or "").strip(),
+                        "record_type": str(item.get("secondaryText") or "").strip(),
+                        "raw": item,
+                    })
+            except Exception as exc:
+                logger.warning("[Scheduler] VPC search failed for %s: %s", town.name, exc)
+
+            # For each record, fetch detail and store (limit to 50 per run)
+            new_count = 0
+            for record in all_records[:50]:
+                record_no = record.get("record_no", "")
+                if not record_no:
+                    continue
+
+                # Dedup
+                if self.supabase:
+                    existing = await self.supabase.fetch(
+                        table="permits",
+                        select="id",
+                        filters={
+                            "permit_number": f"eq.{record_no}",
+                            "town_id": f"eq.{town.id}",
+                        },
+                        limit=1,
+                    )
+                    if existing:
+                        continue
+
+                try:
+                    detail = await vpc.fetch_record_detail(record_id=record["record_id"])
+                    attrs = (detail.get("data") or {}).get("attributes") or {}
+                    await self._insert_permit(town.id, {
+                        "permit_number": record_no,
+                        "town": town.id,
+                        "address": str(attrs.get("address") or attrs.get("locationAddress") or ""),
+                        "permit_type": str(attrs.get("recordTypeName") or record.get("record_type") or "Building"),
+                        "status": str(attrs.get("status") or ""),
+                        "description": str(attrs.get("description") or "")[:500],
+                        "filed_date": str(attrs.get("dateCreated") or "")[:10] or None,
+                        "issued_date": str(attrs.get("dateIssued") or "")[:10] or None,
+                        "estimated_value": None,
+                        "source_system": "viewpointcloud",
+                    })
+                    new_count += 1
+                except Exception as exc:
+                    logger.debug("[Scheduler] VPC record detail failed: %s", exc)
+
+                await asyncio.sleep(0.5)  # Rate limit courtesy
+
+        logger.info(
+            "[Scheduler] ViewpointCloud for %s: %d found, %d new",
+            town.name, len(all_records), new_count,
+        )
+        return {"found": len(all_records), "new": new_count}
 
     async def _scrape_firecrawl_permits(self, town: TownConfig) -> dict:
-        """Scrape permits from town website using Firecrawl."""
+        """Scrape permits from town website using Firecrawl + LLM extraction."""
         if not self.firecrawl or not town.permit_portal_url:
-            return {"found": 0, "new": 0}
+            return {"found": 0, "new": 0, "note": "no_firecrawl_or_url"}
 
         logger.info("[Scheduler] Firecrawl permit scrape for %s", town.name)
-        # Scrape the permit page for any structured permit data
-        result = await self.firecrawl.scrape(town.permit_portal_url)
-        if result:
-            # Parse and store — implementation depends on town-specific format
-            logger.info("[Scheduler] Got permit page content for %s (%d chars)",
-                       town.name, len(result.get("markdown", "")))
-        return {"found": 0, "new": 0, "note": "firecrawl_basic"}
+
+        # Crawl the permit portal page (and linked pages up to 10)
+        pages = await self.firecrawl.crawl(
+            town.permit_portal_url,
+            max_pages=10,
+        )
+
+        if not pages:
+            logger.info("[Scheduler] No pages returned for %s permit portal", town.name)
+            return {"found": 0, "new": 0}
+
+        # Use LLM to extract permit data from each page
+        new_count = 0
+        total_found = 0
+
+        for page in pages:
+            markdown = page.get("markdown", "")
+            if not markdown or len(markdown) < 100:
+                continue
+
+            if not self.llm:
+                logger.info(
+                    "[Scheduler] Got permit page for %s (%d chars) but no LLM extractor",
+                    town.name, len(markdown),
+                )
+                continue
+
+            try:
+                permits = await self._extract_permits_from_page(markdown, town.name)
+                total_found += len(permits)
+
+                for permit in permits:
+                    permit_number = permit.get("permit_number", "")
+                    if not permit_number:
+                        continue
+
+                    # Dedup
+                    if self.supabase:
+                        existing = await self.supabase.fetch(
+                            table="permits",
+                            select="id",
+                            filters={
+                                "permit_number": f"eq.{permit_number}",
+                                "town_id": f"eq.{town.id}",
+                            },
+                            limit=1,
+                        )
+                        if existing:
+                            continue
+
+                    await self._insert_permit(town.id, permit)
+                    new_count += 1
+
+            except Exception as exc:
+                logger.warning(
+                    "[Scheduler] LLM permit extraction failed for %s: %s",
+                    town.name, exc,
+                )
+
+        logger.info(
+            "[Scheduler] Firecrawl for %s: %d pages, %d permits found, %d new",
+            town.name, len(pages), total_found, new_count,
+        )
+        return {"found": total_found, "new": new_count}
+
+    async def _extract_permits_from_page(
+        self, markdown: str, town_name: str
+    ) -> List[Dict[str, Any]]:
+        """Use LLM to extract structured permit data from a scraped page."""
+        if not self.llm:
+            return []
+
+        import json
+
+        text = markdown[:15000]
+
+        prompt = (
+            f"Extract all building/construction permit records from this {town_name} "
+            f"municipal web page. For each permit found, return a JSON array of objects "
+            f"with these fields:\n"
+            f"- permit_number (string, required)\n"
+            f"- address (string)\n"
+            f"- permit_type (string: Building, Electrical, Plumbing, Gas, Demolition, etc.)\n"
+            f"- status (string: Filed, Approved, Issued, Completed, Denied, etc.)\n"
+            f"- description (string, brief)\n"
+            f"- filed_date (string, YYYY-MM-DD if available)\n"
+            f"- issued_date (string, YYYY-MM-DD if available)\n"
+            f"- estimated_value (number or null)\n\n"
+            f"If no permits are found, return an empty array: []\n"
+            f"Return ONLY valid JSON, no explanation.\n\n"
+            f"Page content:\n{text}"
+        )
+
+        try:
+            client = self.llm._ensure_client()
+            resp = client.messages.create(
+                model=self.llm.model,
+                max_tokens=self.llm.max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            result_text = resp.content[0].text.strip()
+
+            # Strip markdown code fences
+            if result_text.startswith("```"):
+                result_text = result_text.split("```")[1]
+                if result_text.startswith("json"):
+                    result_text = result_text[4:]
+                result_text = result_text.strip()
+
+            permits = json.loads(result_text)
+            if isinstance(permits, list):
+                for p in permits:
+                    p["source_system"] = "firecrawl"
+                    p["town"] = town_name.lower().replace(" ", "_")
+                return permits
+        except Exception as exc:
+            logger.debug("[Scheduler] LLM permit parse failed: %s", exc)
+
+        return []
+
+    async def _insert_permit(self, town_id: str, permit: dict):
+        """Insert a normalized permit record into Supabase."""
+        if not self.supabase:
+            return
+
+        from .connectors.normalize import parse_date
+
+        record = {
+            "id": str(uuid.uuid4()),
+            "town_id": town_id,
+            "permit_number": permit.get("permit_number", ""),
+            "permit_type": permit.get("permit_type", "Building"),
+            "status": (permit.get("status") or "FILED").upper(),
+            "address": permit.get("address", ""),
+            "description": (permit.get("description") or "")[:500],
+            "estimated_value": permit.get("estimated_value"),
+            "filed_date": parse_date(permit.get("filed_date")),
+            "issued_date": parse_date(permit.get("issued_date")),
+            "source_system": permit.get("source_system", "unknown"),
+            "latitude": permit.get("latitude") or 0,
+            "longitude": permit.get("longitude") or 0,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        try:
+            await self.supabase.insert("permits", record)
+        except Exception as exc:
+            logger.warning("[Scheduler] Insert permit error: %s", exc)
 
     # ── Job Tracking ──────────────────────────────────────────────────────
 

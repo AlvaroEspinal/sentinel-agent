@@ -1269,8 +1269,15 @@ async def scrape_stats(request: Request):
         completed_jobs = await supabase.count("scrape_jobs", filters={"status": "eq.completed"})
         failed_jobs = await supabase.count("scrape_jobs", filters={"status": "eq.failed"})
 
+        permit_count = 0
+        try:
+            permit_count = await supabase.count("permits")
+        except Exception:
+            pass
+
         return {
             "stats": {
+                "total_permits": permit_count,
                 "total_documents": doc_count,
                 "total_transfers": transfer_count,
                 "total_jobs": job_count,
@@ -1281,6 +1288,71 @@ async def scrape_stats(request: Request):
     except Exception as e:
         logger.error("Scrape stats error: %s", e)
         return {"stats": {}}
+
+
+# ──────────────────────────────────────────────
+# Scraped Permits API (new permits table)
+# ──────────────────────────────────────────────
+
+
+@router.get("/scraped-permits")
+async def get_scraped_permits(
+    request: Request,
+    town_id: Optional[str] = None,
+    permit_type: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = Query(default=50, le=200),
+):
+    """Query permits from the new scraped permits table."""
+    supabase = _get("supabase_client")
+    if not supabase:
+        return {"permits": [], "total": 0}
+
+    filters = {}
+    if town_id:
+        filters["town_id"] = f"eq.{town_id}"
+    if permit_type:
+        filters["permit_type"] = f"eq.{permit_type}"
+    if status:
+        filters["status"] = f"eq.{status}"
+
+    try:
+        permits = await supabase.fetch(
+            table="permits",
+            select="*",
+            filters=filters,
+            order="filed_date.desc",
+            limit=limit,
+        )
+        return {"permits": permits, "total": len(permits)}
+    except Exception as e:
+        logger.error("Scraped permits query error: %s", e)
+        return {"permits": [], "total": 0}
+
+
+@router.get("/scraped-permits/by-town/{town_id}")
+async def get_scraped_permits_by_town(
+    request: Request,
+    town_id: str,
+    limit: int = Query(default=50, le=200),
+):
+    """Get recent scraped permits for a specific town."""
+    supabase = _get("supabase_client")
+    if not supabase:
+        return {"permits": [], "total": 0}
+
+    try:
+        permits = await supabase.fetch(
+            table="permits",
+            select="*",
+            filters={"town_id": f"eq.{town_id}"},
+            order="filed_date.desc",
+            limit=limit,
+        )
+        return {"permits": permits, "total": len(permits), "town_id": town_id}
+    except Exception as e:
+        logger.error("Town permits query error: %s", e)
+        return {"permits": [], "total": 0, "town_id": town_id}
 
 
 # ──────────────────────────────────────────────
