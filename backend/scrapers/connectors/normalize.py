@@ -52,11 +52,19 @@ def parse_date(date_str: Optional[str]) -> Optional[str]:
     except Exception:
         pass
 
+    # Handle MM/DD/YY (2-digit year, e.g. PermitEyes)
+    try:
+        dt = datetime.strptime(date_str, "%m/%d/%y")
+        return dt.strftime("%Y-%m-%d")
+    except Exception:
+        pass
+
     # Handle YYYY-MM-DD (already ISO)
     if re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
         return date_str
 
-    return date_str
+    # If we can't parse it, return None instead of an invalid string
+    return None
 
 
 # ─── Town-specific normalizers ───────────────────────────────────────────────

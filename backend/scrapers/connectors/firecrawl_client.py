@@ -148,6 +148,7 @@ class FirecrawlClient:
         exclude_paths: Optional[List[str]] = None,
         poll_interval_s: float = 5.0,
         max_wait_s: float = 300.0,
+        wait_for: int = 0,
     ) -> List[Dict[str, Any]]:
         """Crawl a website starting from URL, return all discovered pages.
 
@@ -158,19 +159,24 @@ class FirecrawlClient:
             exclude_paths: URL path patterns to exclude
             poll_interval_s: How often to poll for job completion
             max_wait_s: Maximum time to wait for crawl to complete
+            wait_for: Milliseconds to wait for JS rendering on each page
 
         Returns:
             List of page dicts with markdown, metadata, links
         """
         client = await self._ensure_client()
 
+        scrape_opts: Dict[str, Any] = {
+            "formats": ["markdown", "links"],
+            "onlyMainContent": True,
+        }
+        if wait_for > 0:
+            scrape_opts["waitFor"] = wait_for
+
         payload: Dict[str, Any] = {
             "url": url,
             "limit": max_pages,
-            "scrapeOptions": {
-                "formats": ["markdown", "links"],
-                "onlyMainContent": True,
-            },
+            "scrapeOptions": scrape_opts,
         }
         if include_paths:
             payload["includePaths"] = include_paths

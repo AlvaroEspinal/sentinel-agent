@@ -34,7 +34,8 @@ class LLMExtractor:
         model: str = "claude-sonnet-4-20250514",
         max_tokens: int = 2000,
     ):
-        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
+        from config import ANTHROPIC_API_KEY
+        self.api_key = api_key or ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY", "")
         self.model = model
         self.max_tokens = max_tokens
         self._client: Optional[Any] = None

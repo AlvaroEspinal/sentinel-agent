@@ -1210,18 +1210,35 @@ async def get_parcel_mentions(request: Request, loc_id: str):
 # ─── Scrape Management Endpoints ─────────────────────────────────────────────
 
 @router.post("/scrape/trigger/{town_id}")
-async def trigger_scrape(request: Request, town_id: str, source_type: Optional[str] = None):
-    """Manually trigger a scrape for a specific town."""
+async def trigger_scrape(
+    request: Request,
+    town_id: str,
+    source_type: Optional[str] = None,
+    partition: Optional[int] = None,
+    num_partitions: Optional[int] = None,
+):
+    """Manually trigger a scrape for a specific town.
+
+    Optional partition support for parallel scraping:
+    - partition: 0-based partition index (e.g. 0, 1, 2)
+    - num_partitions: total number of partitions (e.g. 3)
+    Each partition scrapes a different slice of record types.
+    """
     scheduler = _get("scrape_scheduler")
     if not scheduler:
         raise HTTPException(status_code=503, detail="Scrape scheduler not initialized")
 
-    result = await scheduler.trigger_town_scrape(town_id, source_type=source_type)
+    result = await scheduler.trigger_town_scrape(
+        town_id,
+        source_type=source_type,
+        partition=partition,
+        num_partitions=num_partitions,
+    )
 
     if "error" in result and not any(k for k in result if k != "error"):
         raise HTTPException(status_code=404, detail=result["error"])
 
-    return {"status": "triggered", "town_id": town_id, "results": result}
+    return {"status": "triggered", "town_id": town_id, "partition": partition, "results": result}
 
 
 @router.get("/scrape/status")

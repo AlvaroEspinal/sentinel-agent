@@ -3,7 +3,8 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).parent.parent / ".env", override=True)  # project root .env
+load_dotenv(override=True)  # local .env can override if present
 
 # Base paths
 BASE_DIR = Path(__file__).parent

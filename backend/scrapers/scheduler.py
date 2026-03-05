@@ -294,7 +294,12 @@ class ScrapeScheduler:
 
     # ── Permits Scrape (placeholder) ──────────────────────────────────────
 
-    async def run_permits_scrape(self, town: TownConfig) -> Dict[str, Any]:
+    async def run_permits_scrape(
+        self,
+        town: TownConfig,
+        partition: Optional[int] = None,
+        num_partitions: Optional[int] = None,
+    ) -> Dict[str, Any]:
         """Scrape permits for a town (dispatches to correct connector)."""
         job_id = await self._create_job(town.id, "permits")
 
@@ -302,7 +307,17 @@ class ScrapeScheduler:
             await self._update_job(job_id, status="running")
 
             if town.permit_portal_type == "viewpointcloud" and town.viewpointcloud_slug:
-                result = await self._scrape_viewpointcloud_permits(town)
+                result = await self._scrape_viewpointcloud_permits(
+                    town, partition=partition, num_partitions=num_partitions
+                )
+            elif town.permit_portal_type == "permiteyes":
+                result = await self._scrape_permiteyes_permits(
+                    town, partition=partition, num_partitions=num_partitions
+                )
+            elif town.permit_portal_type == "simplicity":
+                result = await self._scrape_simplicity_permits(
+                    town, partition=partition, num_partitions=num_partitions
+                )
             elif town.permit_portal_type == "socrata" and town.socrata_datasets:
                 result = await self._scrape_socrata_permits(town)
             elif town.permit_portal_type == "firecrawl" and town.permit_portal_url:
@@ -372,8 +387,34 @@ class ScrapeScheduler:
         )
         return {"found": len(normalized), "new": new_count}
 
-    async def _scrape_viewpointcloud_permits(self, town: TownConfig) -> dict:
-        """Scrape permits from ViewpointCloud portal and store in Supabase."""
+    # Keywords that identify permit-related record types in ViewpointCloud
+    VPC_PERMIT_KEYWORDS = frozenset([
+        "permit", "building", "electric", "plumb", "gas", "demo",
+        "mechanical", "fire", "solar", "roof", "pool", "hvac", "sign",
+        "fence", "tent", "window", "insulation", "zoning", "certificate",
+        "inspection", "occupancy", "sprinkler", "alarm", "fuel",
+        "propane", "well", "engineering", "construction", "plan review",
+        "blasting", "trench", "sewer", "water", "septic", "shed",
+        "driveway", "tank", "flammab", "hazardous", "pyrotechnic",
+        "heating", "transfer station", "waiver", "abandon", "title 5",
+        "battery", "storage", "hot work", "weld", "grind",
+    ])
+
+    async def _scrape_viewpointcloud_permits(
+        self,
+        town: TownConfig,
+        partition: Optional[int] = None,
+        num_partitions: Optional[int] = None,
+    ) -> dict:
+        """Scrape permits from ViewpointCloud portal using bulk records API.
+
+        Uses the paginated ``records?recordTypeID=X`` endpoint (up to 500
+        records per page) instead of the search_results autocomplete endpoint
+        which caps at ~10 results.
+
+        Supports partitioning: if partition and num_partitions are set,
+        only processes the Nth slice of record types for parallel scraping.
+        """
         import httpx as httpx_lib
         from .connectors.viewpointcloud import ViewpointCloudClient, fetch_general_settings
 
@@ -383,7 +424,7 @@ class ScrapeScheduler:
 
         logger.info("[Scheduler] ViewpointCloud permit scrape for %s (slug=%s)", town.name, slug)
 
-        async with httpx_lib.AsyncClient(timeout=30.0) as client:
+        async with httpx_lib.AsyncClient(timeout=60.0) as client:
             api_base, settings, error = await fetch_general_settings(
                 community_slug=slug, client=client
             )
@@ -392,78 +433,354 @@ class ScrapeScheduler:
                 logger.warning("[Scheduler] ViewpointCloud unavailable for %s: %s", town.name, error)
                 return {"found": 0, "new": 0, "note": f"vpc_unavailable: {error}"}
 
-            vpc = ViewpointCloudClient(
-                community_slug=slug,
-                api_base=api_base,
-                client=client,
-            )
-
-            # Search for recent records via the search_results API
-            all_records = []
+            # ── Step 1: Fetch all record types and filter to permits ──
             try:
-                search_results = await vpc.search_results(
-                    criteria="record", key="permit", timeout_s=30.0
+                resp = await client.get(
+                    f"{api_base}/{slug}/record_types", timeout=30.0
                 )
-                for item in search_results:
-                    record_id = str(item.get("entityID") or "").strip()
-                    if not record_id:
-                        continue
-                    all_records.append({
-                        "record_id": record_id,
-                        "record_no": str(item.get("resultText") or "").strip(),
-                        "record_type": str(item.get("secondaryText") or "").strip(),
-                        "raw": item,
-                    })
+                resp.raise_for_status()
+                all_types = resp.json().get("data", [])
             except Exception as exc:
-                logger.warning("[Scheduler] VPC search failed for %s: %s", town.name, exc)
+                logger.warning("[Scheduler] VPC record_types failed for %s: %s", town.name, exc)
+                return {"found": 0, "new": 0, "note": f"record_types_failed: {exc}"}
 
-            # For each record, fetch detail and store (limit to 50 per run)
+            permit_type_ids: List[tuple] = []
+            for rt in all_types:
+                attrs = rt.get("attributes") or {}
+                name = (attrs.get("name") or "").lower()
+                if any(kw in name for kw in self.VPC_PERMIT_KEYWORDS):
+                    permit_type_ids.append((str(rt["id"]), attrs.get("name", "")))
+
+            if not permit_type_ids:
+                logger.info("[Scheduler] No permit-related record types found for %s", town.name)
+                return {"found": 0, "new": 0, "note": "no_permit_types"}
+
+            # ── Partition support for parallel scraping ──
+            total_types = len(permit_type_ids)
+            if partition is not None and num_partitions is not None and num_partitions > 1:
+                chunk_size = (total_types + num_partitions - 1) // num_partitions
+                start = partition * chunk_size
+                end = min(start + chunk_size, total_types)
+                permit_type_ids = permit_type_ids[start:end]
+                logger.info(
+                    "[Scheduler] VPC %s partition %d/%d: types %d-%d of %d (%d types)",
+                    town.name, partition, num_partitions, start, end - 1, total_types,
+                    len(permit_type_ids),
+                )
+            else:
+                logger.info(
+                    "[Scheduler] VPC %s: %d permit-related record types out of %d total",
+                    town.name, len(permit_type_ids), len(all_types),
+                )
+
+            # ── Step 2: Fetch records for each permit type (paginated) ──
+            total_found = 0
             new_count = 0
-            for record in all_records[:50]:
-                record_no = record.get("record_no", "")
-                if not record_no:
-                    continue
+            page_size = 500  # VPC max per page
 
-                # Dedup
-                if self.supabase:
-                    existing = await self.supabase.fetch(
-                        table="permits",
-                        select="id",
-                        filters={
-                            "permit_number": f"eq.{record_no}",
-                            "town_id": f"eq.{town.id}",
-                        },
-                        limit=1,
+            for rt_id, rt_name in permit_type_ids:
+                page = 1
+                type_count = 0
+
+                while True:
+                    try:
+                        resp = await client.get(
+                            f"{api_base}/{slug}/records",
+                            params={
+                                "recordTypeID": rt_id,
+                                "page[size]": str(page_size),
+                                "page[number]": str(page),
+                            },
+                            timeout=45.0,
+                        )
+                        resp.raise_for_status()
+                        payload = resp.json()
+                    except Exception as exc:
+                        logger.debug(
+                            "[Scheduler] VPC records page failed type=%s page=%d: %s",
+                            rt_id, page, exc,
+                        )
+                        break
+
+                    records = payload.get("data") or []
+                    if not records:
+                        break
+
+                    for record in records:
+                        attrs = (record.get("attributes") or {})
+                        record_no = str(attrs.get("recordNo") or "").strip()
+                        if not record_no:
+                            continue
+
+                        total_found += 1
+                        type_count += 1
+
+                        # Dedup against Supabase
+                        if self.supabase:
+                            existing = await self.supabase.fetch(
+                                table="permits",
+                                select="id",
+                                filters={
+                                    "permit_number": f"eq.{record_no}",
+                                    "town_id": f"eq.{town.id}",
+                                },
+                                limit=1,
+                            )
+                            if existing:
+                                continue
+
+                        # Insert — records endpoint already includes attributes
+                        await self._insert_permit(town.id, {
+                            "permit_number": record_no,
+                            "town": town.id,
+                            "address": str(attrs.get("address") or attrs.get("locationAddress") or ""),
+                            "permit_type": str(attrs.get("recordTypeName") or rt_name or "Building"),
+                            "status": str(attrs.get("status") or ""),
+                            "description": str(attrs.get("description") or "")[:500],
+                            "filed_date": str(attrs.get("dateCreated") or "")[:10] or None,
+                            "issued_date": str(attrs.get("dateIssued") or "")[:10] or None,
+                            "estimated_value": None,
+                            "source_system": "viewpointcloud",
+                        })
+                        new_count += 1
+
+                    # If we got fewer than page_size, we've exhausted this type
+                    if len(records) < page_size:
+                        break
+                    page += 1
+                    await asyncio.sleep(0.3)  # Rate limit courtesy between pages
+
+                if type_count > 0:
+                    logger.debug(
+                        "[Scheduler] VPC %s type %s: %d records",
+                        town.name, rt_name[:40], type_count,
                     )
-                    if existing:
-                        continue
-
-                try:
-                    detail = await vpc.fetch_record_detail(record_id=record["record_id"])
-                    attrs = (detail.get("data") or {}).get("attributes") or {}
-                    await self._insert_permit(town.id, {
-                        "permit_number": record_no,
-                        "town": town.id,
-                        "address": str(attrs.get("address") or attrs.get("locationAddress") or ""),
-                        "permit_type": str(attrs.get("recordTypeName") or record.get("record_type") or "Building"),
-                        "status": str(attrs.get("status") or ""),
-                        "description": str(attrs.get("description") or "")[:500],
-                        "filed_date": str(attrs.get("dateCreated") or "")[:10] or None,
-                        "issued_date": str(attrs.get("dateIssued") or "")[:10] or None,
-                        "estimated_value": None,
-                        "source_system": "viewpointcloud",
-                    })
-                    new_count += 1
-                except Exception as exc:
-                    logger.debug("[Scheduler] VPC record detail failed: %s", exc)
-
-                await asyncio.sleep(0.5)  # Rate limit courtesy
+                await asyncio.sleep(0.2)  # Rate limit courtesy between types
 
         logger.info(
             "[Scheduler] ViewpointCloud for %s: %d found, %d new",
-            town.name, len(all_records), new_count,
+            town.name, total_found, new_count,
         )
-        return {"found": len(all_records), "new": new_count}
+        return {"found": total_found, "new": new_count}
+
+    async def _scrape_permiteyes_permits(
+        self,
+        town: TownConfig,
+        partition: Optional[int] = None,
+        num_partitions: Optional[int] = None,
+    ) -> dict:
+        """Scrape permits from PermitEyes (Full Circle Technologies) portal.
+
+        Works with towns using permiteyes.us DataTables AJAX endpoints.
+        Supports partitioning across department endpoints.
+        """
+        import httpx as httpx_lib
+        from .connectors.permiteyes_client import (
+            PERMITEYES_TOWNS,
+            parse_permit_row,
+            fetch_permits_page,
+        )
+
+        town_key = town.id.lower()
+        pe_config = PERMITEYES_TOWNS.get(town_key)
+        if not pe_config:
+            logger.warning("[Scheduler] No PermitEyes config for %s", town.name)
+            return {"found": 0, "new": 0, "note": "no_permiteyes_config"}
+
+        logger.info("[Scheduler] PermitEyes permit scrape for %s (slug=%s)", town.name, pe_config.town_slug)
+
+        endpoints = list(pe_config.endpoints)
+
+        # Partition support: split endpoints across partitions
+        if partition is not None and num_partitions is not None and num_partitions > 1:
+            chunk_size = max(1, (len(endpoints) + num_partitions - 1) // num_partitions)
+            start_idx = partition * chunk_size
+            end_idx = min(start_idx + chunk_size, len(endpoints))
+            endpoints = endpoints[start_idx:end_idx]
+            if not endpoints:
+                return {"found": 0, "new": 0, "note": "partition_empty"}
+
+        total_found = 0
+        new_count = 0
+        page_size = 200
+
+        async with httpx_lib.AsyncClient(timeout=60.0) as client:
+            for endpoint_path, department in endpoints:
+                offset = 0
+                endpoint_total = None
+
+                while True:
+                    try:
+                        rows, records_total = await fetch_permits_page(
+                            client=client,
+                            base_url=pe_config.base_url,
+                            endpoint=endpoint_path,
+                            columns=pe_config.columns,
+                            start=offset,
+                            length=page_size,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "[Scheduler] PermitEyes page failed %s/%s offset=%d: %s",
+                            town.name, department, offset, exc,
+                        )
+                        break
+
+                    if endpoint_total is None:
+                        endpoint_total = records_total
+                        logger.info(
+                            "[Scheduler] PermitEyes %s %s: %d total records",
+                            town.name, department, records_total,
+                        )
+
+                    if not rows:
+                        break
+
+                    for row in rows:
+                        if not isinstance(row, list):
+                            continue
+                        permit = parse_permit_row(row, department, pe_config.columns)
+                        source_id = permit.get("source_id", "")
+                        if not source_id:
+                            continue
+
+                        total_found += 1
+
+                        # Use app_number or permit_number as dedup key
+                        permit_number = permit.get("permit_number") or permit.get("app_number") or source_id
+
+                        # Dedup against Supabase
+                        if self.supabase:
+                            existing = await self.supabase.fetch(
+                                table="permits",
+                                select="id",
+                                filters={
+                                    "source_id": f"eq.{source_id}",
+                                    "town_id": f"eq.{town.id}",
+                                },
+                                limit=1,
+                            )
+                            if existing:
+                                continue
+
+                        # Map PermitEyes fields to our permit schema
+                        await self._insert_permit(town.id, {
+                            "permit_number": permit_number,
+                            "permit_type": permit.get("app_type") or department,
+                            "status": permit.get("status") or "FILED",
+                            "address": permit.get("address") or "",
+                            "description": (permit.get("description") or "")[:500],
+                            "applicant_name": permit.get("applicant") or "",
+                            "filed_date": permit.get("app_date") or None,
+                            "issued_date": permit.get("issue_date") or None,
+                            "source_system": "permiteyes",
+                            "source_id": source_id,
+                        })
+                        new_count += 1
+
+                    offset += len(rows)
+                    if offset >= (endpoint_total or 0):
+                        break
+
+                    await asyncio.sleep(0.3)  # Rate limit courtesy
+
+        logger.info(
+            "[Scheduler] PermitEyes for %s: %d found, %d new",
+            town.name, total_found, new_count,
+        )
+        return {"found": total_found, "new": new_count}
+
+    async def _scrape_simplicity_permits(
+        self,
+        town: TownConfig,
+        partition: Optional[int] = None,
+        num_partitions: Optional[int] = None,
+    ) -> dict:
+        """Scrape permits from SimpliCITY/MapsOnline (PeopleGIS) portal.
+
+        Works with towns using mapsonline.net permit portals.
+        """
+        import httpx as httpx_lib
+        from .connectors.simplicity_client import (
+            SIMPLICITY_TOWNS,
+            get_session_id,
+            scrape_town_permits,
+        )
+
+        town_key = town.id.lower()
+        sc_config = SIMPLICITY_TOWNS.get(town_key)
+        if not sc_config:
+            logger.warning("[Scheduler] No SimpliCITY config for %s", town.name)
+            return {"found": 0, "new": 0, "note": "no_simplicity_config"}
+
+        logger.info(
+            "[Scheduler] SimpliCITY permit scrape for %s (client=%s)",
+            town.name, sc_config.client_name,
+        )
+
+        async with httpx_lib.AsyncClient(timeout=60.0) as client:
+            # Get public session
+            ssid = await get_session_id(client=client, client_name=sc_config.client_name)
+            if not ssid:
+                return {"found": 0, "new": 0, "note": "session_failed"}
+
+            logger.info("[Scheduler] SimpliCITY session obtained for %s", town.name)
+
+            # Scrape all permit forms
+            permits = await scrape_town_permits(
+                config=sc_config,
+                client=client,
+                ssid=ssid,
+                page_size=100,
+                partition=partition,
+                num_partitions=num_partitions,
+            )
+
+        total_found = len(permits)
+        new_count = 0
+
+        for permit in permits:
+            source_id = permit.get("source_id", "")
+            if not source_id:
+                continue
+
+            permit_number = permit.get("permit_number") or source_id
+
+            # Dedup against Supabase
+            if self.supabase:
+                existing = await self.supabase.fetch(
+                    table="permits",
+                    select="id",
+                    filters={
+                        "source_id": f"eq.{source_id}",
+                        "town_id": f"eq.{town.id}",
+                    },
+                    limit=1,
+                )
+                if existing:
+                    continue
+
+            await self._insert_permit(town.id, {
+                "permit_number": permit_number,
+                "permit_type": permit.get("permit_type") or permit.get("department") or "Building",
+                "status": permit.get("status") or "FILED",
+                "address": permit.get("address") or "",
+                "description": (permit.get("description") or "")[:500],
+                "applicant_name": permit.get("applicant") or "",
+                "contractor_name": permit.get("contractor") or "",
+                "filed_date": permit.get("app_date") or None,
+                "issued_date": permit.get("issue_date") or None,
+                "estimated_value": permit.get("estimated_value"),
+                "source_system": "simplicity",
+                "source_id": source_id,
+            })
+            new_count += 1
+
+        logger.info(
+            "[Scheduler] SimpliCITY for %s: %d found, %d new",
+            town.name, total_found, new_count,
+        )
+        return {"found": total_found, "new": new_count}
 
     async def _scrape_firecrawl_permits(self, town: TownConfig) -> dict:
         """Scrape permits from town website using Firecrawl + LLM extraction."""
@@ -473,9 +790,11 @@ class ScrapeScheduler:
         logger.info("[Scheduler] Firecrawl permit scrape for %s", town.name)
 
         # Crawl the permit portal page (and linked pages up to 10)
+        # wait_for=5000 gives JS-heavy CivicPlus sites time to render
         pages = await self.firecrawl.crawl(
             town.permit_portal_url,
             max_pages=10,
+            wait_for=5000,
         )
 
         if not pages:
@@ -607,9 +926,12 @@ class ScrapeScheduler:
             "address": permit.get("address", ""),
             "description": (permit.get("description") or "")[:500],
             "estimated_value": permit.get("estimated_value"),
+            "applicant_name": permit.get("applicant_name") or "",
+            "contractor_name": permit.get("contractor_name") or "",
             "filed_date": parse_date(permit.get("filed_date")),
             "issued_date": parse_date(permit.get("issued_date")),
             "source_system": permit.get("source_system", "unknown"),
+            "source_id": permit.get("source_id") or "",
             "latitude": permit.get("latitude") or 0,
             "longitude": permit.get("longitude") or 0,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -679,12 +1001,16 @@ class ScrapeScheduler:
         self,
         town_id: str,
         source_type: Optional[str] = None,
+        partition: Optional[int] = None,
+        num_partitions: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Manually trigger scraping for a specific town.
 
         Args:
             town_id: Town ID (e.g. "newton")
             source_type: Optional specific source type, or None for all
+            partition: 0-based partition index for parallel scraping
+            num_partitions: total number of partitions
 
         Returns:
             Results dict
@@ -702,6 +1028,8 @@ class ScrapeScheduler:
             results["minutes"] = await self.run_minutes_scrape(town)
 
         if source_type is None or source_type == "permits":
-            results["permits"] = await self.run_permits_scrape(town)
+            results["permits"] = await self.run_permits_scrape(
+                town, partition=partition, num_partitions=num_partitions
+            )
 
         return results

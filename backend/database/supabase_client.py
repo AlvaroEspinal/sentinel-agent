@@ -258,7 +258,10 @@ class SupabaseRestClient:
             headers=headers,
             json=data,
         )
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"Insert failed: status={resp.status_code} body={resp.text[:300]}"
+            )
 
         try:
             return resp.json()
