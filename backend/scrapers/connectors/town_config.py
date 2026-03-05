@@ -410,6 +410,98 @@ TARGET_TOWNS: Dict[str, TownConfig] = {
             BoardConfig("Conservation Commission", "conservation_commission"),
         ],
     ),
+    # ── Socrata Towns ──────────────────────────────────────────────────────
+
+    "cambridge": TownConfig(
+        id="cambridge",
+        name="Cambridge",
+        county="Middlesex",
+        registry_district="southern_middlesex",
+        center_lat=42.374,
+        center_lon=-71.106,
+        population=118403,
+        median_home_value=1_800_000,
+        permit_portal_type="socrata",
+        socrata_base_url="https://data.cambridgema.gov",
+        socrata_datasets={
+            "new_construction": "9qm7-wbdc",
+            "addition_alteration": "qu2z-8suj",
+            "electrical": "hvtc-3ab9",
+            "plumbing": "8793-tet2",
+            "gas": "5cra-jws5",
+            "mechanical": "4rb4-q8tj",
+            "demolition": "kcfi-ackv",
+            "solar": "whpw-w55x",
+            "roof": "79ih-g44d",
+            "siding": "ddej-349p",
+        },
+    ),
+
+    "somerville": TownConfig(
+        id="somerville",
+        name="Somerville",
+        county="Middlesex",
+        registry_district="southern_middlesex",
+        center_lat=42.388,
+        center_lon=-71.100,
+        population=81360,
+        median_home_value=950_000,
+        permit_portal_type="socrata",
+        socrata_base_url="https://data.somervillema.gov",
+        socrata_datasets={
+            "permits": "vxgw-vmky",
+        },
+    ),
+
+    # ── Additional PermitEyes Towns ──────────────────────────────────────
+
+    "chicopee": TownConfig(
+        id="chicopee",
+        name="Chicopee",
+        county="Hampden",
+        center_lat=42.149,
+        center_lon=-72.607,
+        population=55298,
+        median_home_value=250_000,
+        permit_portal_url="https://permiteyes.us/chicopee/publicview.php",
+        permit_portal_type="permiteyes",
+    ),
+
+    "easthampton": TownConfig(
+        id="easthampton",
+        name="Easthampton",
+        county="Hampshire",
+        center_lat=42.267,
+        center_lon=-72.669,
+        population=16053,
+        median_home_value=340_000,
+        permit_portal_url="https://permiteyes.us/easthampton/publicview.php",
+        permit_portal_type="permiteyes",
+    ),
+
+    "taunton": TownConfig(
+        id="taunton",
+        name="Taunton",
+        county="Bristol",
+        center_lat=41.901,
+        center_lon=-71.094,
+        population=57464,
+        median_home_value=380_000,
+        permit_portal_url="https://permiteyes.us/taunton/publicview.php",
+        permit_portal_type="permiteyes",
+    ),
+
+    "west_bridgewater": TownConfig(
+        id="west_bridgewater",
+        name="West Bridgewater",
+        county="Plymouth",
+        center_lat=42.019,
+        center_lon=-71.008,
+        population=7606,
+        median_home_value=420_000,
+        permit_portal_url="https://permiteyes.us/westbridgewater/publicview.php",
+        permit_portal_type="permiteyes",
+    ),
 }
 
 

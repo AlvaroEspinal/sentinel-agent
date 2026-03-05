@@ -656,26 +656,28 @@ class ScrapeScheduler:
         normalized = normalize_batch(raw_permits, town_key)
 
         new_count = 0
-        if self.supabase and normalized:
+        if normalized:
             for permit in normalized:
                 permit_number = permit.get("permit_number", "")
                 if not permit_number:
                     continue
 
-                # Dedup by permit_number + town
-                existing = await self.supabase.fetch(
-                    table="permits",
-                    select="id",
-                    filters={
-                        "permit_number": f"eq.{permit_number}",
-                        "town_id": f"eq.{town.id}",
-                    },
-                    limit=1,
-                )
+                # Dedup by permit_number + town (only when Supabase is available)
+                if self.supabase:
+                    existing = await self.supabase.fetch(
+                        table="permits",
+                        select="id",
+                        filters={
+                            "permit_number": f"eq.{permit_number}",
+                            "town_id": f"eq.{town.id}",
+                        },
+                        limit=1,
+                    )
+                    if existing:
+                        continue
 
-                if not existing:
-                    await self._insert_permit(town.id, permit)
-                    new_count += 1
+                await self._insert_permit(town.id, permit)
+                new_count += 1
 
         logger.info(
             "[Scheduler] Socrata for %s: %d raw, %d normalized, %d new",
