@@ -1306,6 +1306,44 @@ async def scrape_stats(request: Request):
         return {"stats": {}}
 
 
+@router.get("/scrape/check")
+async def scrape_check():
+    """Check which scrapers have completed, which are running, and which are pending.
+
+    Returns per-town, per-source_type breakdown so you can see exactly
+    which jobs still need to run.
+    """
+    scheduler = _get("scrape_scheduler")
+    if not scheduler:
+        raise HTTPException(status_code=503, detail="Scrape scheduler not initialized")
+
+    status = await scheduler.get_scrape_status()
+    return status
+
+
+@router.post("/scrape/run-pending")
+async def scrape_run_pending(
+    max_concurrency: int = Query(default=4, ge=1, le=12),
+    source_type: Optional[str] = Query(default=None, description="Filter: permits, meeting_minutes, property_transfers"),
+):
+    """Find all incomplete/overdue scrape jobs and run them in parallel.
+
+    Spawns up to ``max_concurrency`` concurrent scraper tasks for pending
+    towns.  Returns results once all tasks complete.
+    """
+    scheduler = _get("scrape_scheduler")
+    if not scheduler:
+        raise HTTPException(status_code=503, detail="Scrape scheduler not initialized")
+
+    source_types = [source_type] if source_type else None
+
+    result = await scheduler.run_pending_parallel(
+        max_concurrency=max_concurrency,
+        source_types=source_types,
+    )
+    return result
+
+
 # ──────────────────────────────────────────────
 # Scraped Permits API (new permits table)
 # ──────────────────────────────────────────────

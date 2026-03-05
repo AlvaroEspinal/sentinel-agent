@@ -101,6 +101,251 @@ class ScrapeScheduler:
         # Should heartbeat every check_interval_s (~300s) + generous margin
         return age < 900  # 15 minutes
 
+    # ── Status & Parallel Execution ──────────────────────────────────────
+
+    async def get_scrape_status(self) -> Dict[str, Any]:
+        """Check scrape completion status for all towns and job types.
+
+        Returns a dict with:
+          - completed: list of {town_id, source_type, completed_at}
+          - pending: list of {town_id, source_type, reason}
+          - running: list of {town_id, source_type, started_at}
+          - summary: {total, completed, pending, running}
+        """
+        towns = get_all_towns()
+        completed = []
+        pending = []
+        running = []
+
+        job_types = [
+            ("property_transfers", "transfers_scrape_interval_hours"),
+            ("meeting_minutes", "minutes_scrape_interval_hours"),
+            ("permits", "permits_scrape_interval_hours"),
+        ]
+
+        for town_id, town in towns.items():
+            for source_type, interval_attr in job_types:
+                hours = getattr(town, interval_attr)
+
+                # Check for currently running jobs
+                if self.supabase:
+                    try:
+                        running_rows = await self.supabase.fetch(
+                            table="scrape_jobs",
+                            select="id,started_at",
+                            filters={
+                                "town_id": f"eq.{town_id}",
+                                "source_type": f"eq.{source_type}",
+                                "status": "eq.running",
+                            },
+                            limit=1,
+                        )
+                        if running_rows:
+                            running.append({
+                                "town_id": town_id,
+                                "town_name": town.name,
+                                "source_type": source_type,
+                                "started_at": running_rows[0].get("started_at"),
+                            })
+                            continue
+                    except Exception:
+                        pass
+
+                due = await self._is_job_due(town_id, source_type, hours=hours)
+                if due:
+                    # Check if it ever ran
+                    reason = "never_run"
+                    if self.supabase:
+                        try:
+                            any_rows = await self.supabase.fetch(
+                                table="scrape_jobs",
+                                select="status,error_message",
+                                filters={
+                                    "town_id": f"eq.{town_id}",
+                                    "source_type": f"eq.{source_type}",
+                                },
+                                order="started_at.desc",
+                                limit=1,
+                            )
+                            if any_rows:
+                                last = any_rows[0]
+                                if last.get("status") == "failed":
+                                    reason = f"last_failed: {last.get('error_message', 'unknown')}"
+                                else:
+                                    reason = "overdue"
+                        except Exception:
+                            reason = "unknown"
+
+                    pending.append({
+                        "town_id": town_id,
+                        "town_name": town.name,
+                        "source_type": source_type,
+                        "portal_type": town.permit_portal_type,
+                        "reason": reason,
+                    })
+                else:
+                    # Get last completion info
+                    completed_at = None
+                    if self.supabase:
+                        try:
+                            rows = await self.supabase.fetch(
+                                table="scrape_jobs",
+                                select="completed_at,records_found,records_new",
+                                filters={
+                                    "town_id": f"eq.{town_id}",
+                                    "source_type": f"eq.{source_type}",
+                                    "status": "eq.completed",
+                                },
+                                order="completed_at.desc",
+                                limit=1,
+                            )
+                            if rows:
+                                completed_at = rows[0].get("completed_at")
+                        except Exception:
+                            pass
+
+                    completed.append({
+                        "town_id": town_id,
+                        "town_name": town.name,
+                        "source_type": source_type,
+                        "completed_at": completed_at,
+                    })
+
+        total = len(completed) + len(pending) + len(running)
+        return {
+            "completed": completed,
+            "pending": pending,
+            "running": running,
+            "summary": {
+                "total": total,
+                "completed": len(completed),
+                "pending": len(pending),
+                "running": len(running),
+            },
+        }
+
+    async def run_pending_parallel(
+        self,
+        max_concurrency: int = 4,
+        source_types: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Run all pending/overdue scrape jobs in parallel.
+
+        Spawns up to ``max_concurrency`` concurrent tasks, each handling one
+        town+source_type combination.  Returns aggregated results.
+
+        Args:
+            max_concurrency: Max simultaneous scrape tasks.
+            source_types: Filter to specific types (e.g. ["permits"]).
+                          Default: all types.
+        """
+        status = await self.get_scrape_status()
+        pending_jobs = status["pending"]
+
+        if source_types:
+            allowed = set(source_types)
+            pending_jobs = [j for j in pending_jobs if j["source_type"] in allowed]
+
+        if not pending_jobs:
+            logger.info("[Scheduler] No pending jobs to run in parallel")
+            return {"results": [], "summary": status["summary"]}
+
+        logger.info(
+            "[Scheduler] Running %d pending jobs in parallel (max_concurrency=%d)",
+            len(pending_jobs),
+            max_concurrency,
+        )
+
+        semaphore = asyncio.Semaphore(max_concurrency)
+        results = []
+
+        async def _run_one(job: dict) -> dict:
+            town_id = job["town_id"]
+            source_type = job["source_type"]
+            town = get_all_towns().get(town_id)
+            if not town:
+                return {"town_id": town_id, "source_type": source_type, "error": "town_not_found"}
+
+            async with semaphore:
+                logger.info(
+                    "[Scheduler] Parallel: starting %s/%s",
+                    town_id, source_type,
+                )
+                try:
+                    if source_type == "property_transfers":
+                        result = await asyncio.wait_for(
+                            self.run_transfers_scrape(town),
+                            timeout=self.TOWN_TIMEOUT_S,
+                        )
+                    elif source_type == "meeting_minutes":
+                        result = await asyncio.wait_for(
+                            self.run_minutes_scrape(town),
+                            timeout=self.TOWN_TIMEOUT_S,
+                        )
+                    elif source_type == "permits":
+                        result = await asyncio.wait_for(
+                            self.run_permits_scrape(town),
+                            timeout=self.TOWN_TIMEOUT_S,
+                        )
+                    else:
+                        result = {"error": f"unknown_source_type: {source_type}"}
+
+                    result["source_type"] = source_type
+                    return result
+
+                except asyncio.TimeoutError:
+                    logger.error(
+                        "[Scheduler] Parallel: %s/%s timed out after %.0fs",
+                        town_id, source_type, self.TOWN_TIMEOUT_S,
+                    )
+                    return {
+                        "town_id": town_id,
+                        "source_type": source_type,
+                        "error": "timeout",
+                    }
+                except Exception as exc:
+                    logger.error(
+                        "[Scheduler] Parallel: %s/%s failed: %s",
+                        town_id, source_type, exc,
+                    )
+                    return {
+                        "town_id": town_id,
+                        "source_type": source_type,
+                        "error": str(exc),
+                    }
+
+        tasks = [asyncio.create_task(_run_one(job)) for job in pending_jobs]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Normalize exceptions into dicts
+        final_results = []
+        for i, r in enumerate(results):
+            if isinstance(r, Exception):
+                final_results.append({
+                    "town_id": pending_jobs[i]["town_id"],
+                    "source_type": pending_jobs[i]["source_type"],
+                    "error": str(r),
+                })
+            else:
+                final_results.append(r)
+
+        succeeded = sum(1 for r in final_results if "error" not in r)
+        failed = len(final_results) - succeeded
+
+        logger.info(
+            "[Scheduler] Parallel scrape complete: %d succeeded, %d failed out of %d",
+            succeeded, failed, len(final_results),
+        )
+
+        return {
+            "results": final_results,
+            "summary": {
+                "dispatched": len(final_results),
+                "succeeded": succeeded,
+                "failed": failed,
+            },
+        }
+
     # ── Job Execution ─────────────────────────────────────────────────────
 
     async def run_all_pending(self):
