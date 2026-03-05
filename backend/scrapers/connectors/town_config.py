@@ -410,6 +410,410 @@ TARGET_TOWNS: Dict[str, TownConfig] = {
             BoardConfig("Conservation Commission", "conservation_commission"),
         ],
     ),
+    # ── Socrata Towns ──────────────────────────────────────────────────────
+
+    "cambridge": TownConfig(
+        id="cambridge",
+        name="Cambridge",
+        county="Middlesex",
+        registry_district="southern_middlesex",
+        center_lat=42.374,
+        center_lon=-71.106,
+        population=118403,
+        median_home_value=1_800_000,
+        permit_portal_type="socrata",
+        socrata_base_url="https://data.cambridgema.gov",
+        socrata_datasets={
+            "new_construction": "9qm7-wbdc",
+            "addition_alteration": "qu2z-8suj",
+            "electrical": "hvtc-3ab9",
+            "plumbing": "8793-tet2",
+            "gas": "5cra-jws5",
+            "mechanical": "4rb4-q8tj",
+            "demolition": "kcfi-ackv",
+            "solar": "whpw-w55x",
+            "roof": "79ih-g44d",
+            "siding": "ddej-349p",
+        },
+    ),
+
+    "somerville": TownConfig(
+        id="somerville",
+        name="Somerville",
+        county="Middlesex",
+        registry_district="southern_middlesex",
+        center_lat=42.388,
+        center_lon=-71.100,
+        population=81360,
+        median_home_value=950_000,
+        permit_portal_type="socrata",
+        socrata_base_url="https://data.somervillema.gov",
+        socrata_datasets={
+            "permits": "vxgw-vmky",
+        },
+    ),
+
+    # ── Additional PermitEyes Towns ──────────────────────────────────────
+
+    "chicopee": TownConfig(
+        id="chicopee",
+        name="Chicopee",
+        county="Hampden",
+        center_lat=42.149,
+        center_lon=-72.607,
+        population=55298,
+        median_home_value=250_000,
+        permit_portal_url="https://permiteyes.us/chicopee/publicview.php",
+        permit_portal_type="permiteyes",
+    ),
+
+    "easthampton": TownConfig(
+        id="easthampton",
+        name="Easthampton",
+        county="Hampshire",
+        center_lat=42.267,
+        center_lon=-72.669,
+        population=16053,
+        median_home_value=340_000,
+        permit_portal_url="https://permiteyes.us/easthampton/publicview.php",
+        permit_portal_type="permiteyes",
+    ),
+
+    "taunton": TownConfig(
+        id="taunton",
+        name="Taunton",
+        county="Bristol",
+        center_lat=41.901,
+        center_lon=-71.094,
+        population=57464,
+        median_home_value=380_000,
+        permit_portal_url="https://permiteyes.us/taunton/publicview.php",
+        permit_portal_type="permiteyes",
+    ),
+
+    "west_bridgewater": TownConfig(
+        id="west_bridgewater",
+        name="West Bridgewater",
+        county="Plymouth",
+        center_lat=42.019,
+        center_lon=-71.008,
+        population=7606,
+        median_home_value=420_000,
+        permit_portal_url="https://permiteyes.us/westbridgewater/publicview.php",
+        permit_portal_type="permiteyes",
+    ),
+    # ── Discovered ViewpointCloud Towns (31 towns) ─────────────────────────
+
+    "haverhill": TownConfig(
+        id="haverhill",
+        name="Haverhill",
+        county="Essex",
+        center_lat=42.776, center_lon=-71.077,
+        population=67838,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="haverhillma",
+    ),
+
+    "shrewsbury": TownConfig(
+        id="shrewsbury",
+        name="Shrewsbury",
+        county="Worcester",
+        center_lat=42.296, center_lon=-71.713,
+        population=38326,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="shrewsburyma",
+    ),
+
+    "acton": TownConfig(
+        id="acton",
+        name="Acton",
+        county="Middlesex",
+        center_lat=42.485, center_lon=-71.433,
+        population=24194,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="actonma",
+    ),
+
+    "bourne": TownConfig(
+        id="bourne",
+        name="Bourne",
+        county="Barnstable",
+        center_lat=41.741, center_lon=-70.599,
+        population=19865,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="bournema",
+    ),
+
+    "framingham": TownConfig(
+        id="framingham",
+        name="Framingham",
+        county="Middlesex",
+        center_lat=42.280, center_lon=-71.417,
+        population=72032,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="framinghamma",
+    ),
+
+    "salem": TownConfig(
+        id="salem",
+        name="Salem",
+        county="Essex",
+        center_lat=42.520, center_lon=-70.897,
+        population=44480,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="salemma",
+    ),
+
+    "franklin": TownConfig(
+        id="franklin",
+        name="Franklin",
+        county="Norfolk",
+        center_lat=42.083, center_lon=-71.397,
+        population=34087,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="franklinma",
+    ),
+
+    "walpole": TownConfig(
+        id="walpole",
+        name="Walpole",
+        county="Norfolk",
+        center_lat=42.142, center_lon=-71.250,
+        population=25575,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="walpolema",
+    ),
+
+    "belmont": TownConfig(
+        id="belmont",
+        name="Belmont",
+        county="Middlesex",
+        center_lat=42.396, center_lon=-71.179,
+        population=27295,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="belmontma",
+    ),
+
+    "barnstable": TownConfig(
+        id="barnstable",
+        name="Barnstable",
+        county="Barnstable",
+        center_lat=41.700, center_lon=-70.300,
+        population=44641,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="barnstablema",
+    ),
+
+    "gloucester": TownConfig(
+        id="gloucester",
+        name="Gloucester",
+        county="Essex",
+        center_lat=42.615, center_lon=-70.662,
+        population=30273,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="gloucesterma",
+    ),
+
+    "wrentham": TownConfig(
+        id="wrentham",
+        name="Wrentham",
+        county="Norfolk",
+        center_lat=42.066, center_lon=-71.329,
+        population=12462,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="wrenthamma",
+    ),
+
+    "tewksbury": TownConfig(
+        id="tewksbury",
+        name="Tewksbury",
+        county="Middlesex",
+        center_lat=42.611, center_lon=-71.234,
+        population=31668,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="tewksburyma",
+    ),
+
+    "tisbury": TownConfig(
+        id="tisbury",
+        name="Tisbury",
+        county="Dukes",
+        center_lat=41.457, center_lon=-70.604,
+        population=4185,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="tisburyma",
+    ),
+
+    "dedham": TownConfig(
+        id="dedham",
+        name="Dedham",
+        county="Norfolk",
+        center_lat=42.242, center_lon=-71.163,
+        population=25330,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="dedhamma",
+    ),
+
+    "quincy": TownConfig(
+        id="quincy",
+        name="Quincy",
+        county="Norfolk",
+        center_lat=42.251, center_lon=-71.002,
+        population=101636,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="quincyma",
+    ),
+
+    "gardner": TownConfig(
+        id="gardner",
+        name="Gardner",
+        county="Worcester",
+        center_lat=42.575, center_lon=-71.998,
+        population=21327,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="gardnerma",
+    ),
+
+    "orleans": TownConfig(
+        id="orleans",
+        name="Orleans",
+        county="Barnstable",
+        center_lat=41.789, center_lon=-69.990,
+        population=5985,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="orleansma",
+    ),
+
+    "new_bedford": TownConfig(
+        id="new_bedford",
+        name="New Bedford",
+        county="Bristol",
+        center_lat=41.636, center_lon=-70.934,
+        population=101079,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="newbedfordma",
+    ),
+
+    "hanover": TownConfig(
+        id="hanover",
+        name="Hanover",
+        county="Plymouth",
+        center_lat=42.113, center_lon=-70.812,
+        population=14852,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="hanoverma",
+    ),
+
+    "rutland": TownConfig(
+        id="rutland",
+        name="Rutland",
+        county="Worcester",
+        center_lat=42.373, center_lon=-71.949,
+        population=9295,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="rutlandma",
+    ),
+
+    "ashland": TownConfig(
+        id="ashland",
+        name="Ashland",
+        county="Middlesex",
+        center_lat=42.261, center_lon=-71.463,
+        population=18165,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="ashlandma",
+    ),
+
+    "brewster": TownConfig(
+        id="brewster",
+        name="Brewster",
+        county="Barnstable",
+        center_lat=41.760, center_lon=-70.082,
+        population=10318,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="brewsterma",
+    ),
+
+    "medfield": TownConfig(
+        id="medfield",
+        name="Medfield",
+        county="Norfolk",
+        center_lat=42.187, center_lon=-71.307,
+        population=12841,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="medfieldma",
+    ),
+
+    "eastham": TownConfig(
+        id="eastham",
+        name="Eastham",
+        county="Barnstable",
+        center_lat=41.830, center_lon=-69.974,
+        population=5188,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="easthamma",
+    ),
+
+    "marblehead": TownConfig(
+        id="marblehead",
+        name="Marblehead",
+        county="Essex",
+        center_lat=42.500, center_lon=-70.858,
+        population=20667,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="marbleheadma",
+    ),
+
+    "manchester": TownConfig(
+        id="manchester",
+        name="Manchester-by-the-Sea",
+        county="Essex",
+        center_lat=42.578, center_lon=-70.770,
+        population=5764,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="manchesterma",
+    ),
+
+    "peabody": TownConfig(
+        id="peabody",
+        name="Peabody",
+        county="Essex",
+        center_lat=42.528, center_lon=-70.929,
+        population=54070,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="peabodyma",
+    ),
+
+    "sudbury": TownConfig(
+        id="sudbury",
+        name="Sudbury",
+        county="Middlesex",
+        center_lat=42.383, center_lon=-71.416,
+        population=19655,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="sudburyma",
+    ),
+
+    "auburn": TownConfig(
+        id="auburn",
+        name="Auburn",
+        county="Worcester",
+        center_lat=42.195, center_lon=-71.846,
+        population=16851,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="auburnma",
+    ),
+
+    "winchester": TownConfig(
+        id="winchester",
+        name="Winchester",
+        county="Middlesex",
+        center_lat=42.452, center_lon=-71.137,
+        population=22970,
+        median_home_value=1_200_000,
+        permit_portal_type="viewpointcloud",
+        viewpointcloud_slug="winchesterma",
+    ),
 }
 
 

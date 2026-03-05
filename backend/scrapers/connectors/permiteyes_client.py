@@ -54,6 +54,46 @@ LINCOLN_COLUMNS = ColumnMap(
     num_columns=9, sort_column=1,
 )
 
+# Chicopee: 17 columns
+# col[6]=AppNumber, col[7]=AppDate, col[9]=Address, col[11]=Applicant,
+# col[13]=AppType, col[15]=Status
+CHICOPEE_COLUMNS = ColumnMap(
+    app_number=6, app_date=7, address=9, applicant=11,
+    app_type=13, status=15,
+    num_columns=17, sort_column=6,
+)
+
+# Easthampton: 19 columns
+# col[6]=AppNumber, col[7]=AppDate, col[10..11]=Address(number+street),
+# col[12]=Applicant, col[14]=Description, col[15]=AppType, col[17]=Status
+EASTHAMPTON_COLUMNS = ColumnMap(
+    app_number=6, app_date=7, address=11, applicant=12,
+    description=14, app_type=15, status=17,
+    num_columns=19, sort_column=6,
+)
+
+# Taunton: 14 columns
+# col[3]=AppNumber, col[4]=AppDate, col[5]=IssueDate, col[6]=Address,
+# col[7]=Applicant, col[8]=Contractor, col[10]=Description, col[11]=AppType,
+# col[12]=PermitNumber, col[13]=Status
+TAUNTON_COLUMNS = ColumnMap(
+    app_number=3, app_date=4, issue_date=5, address=6,
+    applicant=7, description=10, app_type=11,
+    permit_number=12, status=13,
+    num_columns=14, sort_column=3,
+)
+
+# West Bridgewater: 17 columns
+# col[4]=AppNumber, col[5]=AppDate, col[6]=IssueDate,
+# col[8..9]=Address(number+street), col[10]=Contractor, col[11]=Owner,
+# col[12]=Description, col[13]=AppType, col[14]=PermitNumber, col[15]=Status
+WEST_BRIDGEWATER_COLUMNS = ColumnMap(
+    app_number=4, app_date=5, issue_date=6, address=9,
+    applicant=10, description=12, app_type=13,
+    permit_number=14, status=15,
+    num_columns=17, sort_column=4,
+)
+
 
 @dataclass(frozen=True)
 class PermitEyesConfig:
@@ -84,6 +124,34 @@ PERMITEYES_TOWNS: Dict[str, PermitEyesConfig] = {
             ("ajax/getpublichome.php", "Building"),
         ],
         columns=LINCOLN_COLUMNS,
+    ),
+    "chicopee": PermitEyesConfig(
+        town_slug="chicopee",
+        endpoints=[
+            ("ajax/getpublichome.php", "Building"),
+        ],
+        columns=CHICOPEE_COLUMNS,
+    ),
+    "easthampton": PermitEyesConfig(
+        town_slug="easthampton",
+        endpoints=[
+            ("ajax/getpublichome.php", "Building"),
+        ],
+        columns=EASTHAMPTON_COLUMNS,
+    ),
+    "taunton": PermitEyesConfig(
+        town_slug="taunton",
+        endpoints=[
+            ("ajax/getpublicview.php", "Building"),
+        ],
+        columns=TAUNTON_COLUMNS,
+    ),
+    "west_bridgewater": PermitEyesConfig(
+        town_slug="westbridgewater",
+        endpoints=[
+            ("ajax/getbuildingpublichome.php", "Building"),
+        ],
+        columns=WEST_BRIDGEWATER_COLUMNS,
     ),
 }
 

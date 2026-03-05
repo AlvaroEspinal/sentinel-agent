@@ -33,16 +33,29 @@ from .connectors.firecrawl_client import FirecrawlClient
 class ScrapeScheduler:
     """Manages recurring scrape jobs for all target towns."""
 
+    # Maximum time (seconds) a single town scrape cycle may run before being
+    # cancelled.  Prevents a hanging HTTP request from blocking the entire
+    # scheduler loop.
+    TOWN_TIMEOUT_S: float = 600.0  # 10 minutes
+
     def __init__(
         self,
         supabase: Optional[Any] = None,
         firecrawl: Optional[FirecrawlClient] = None,
         llm_extractor: Optional[LLMExtractor] = None,
+        local_storage_dir: Optional[str] = None,
     ):
         self.supabase = supabase
         self.firecrawl = firecrawl
         self.llm = llm_extractor
         self._running = False
+        self._last_heartbeat: Optional[datetime] = None
+        self._consecutive_failures: int = 0
+
+        # Local file storage mode: when Supabase is unavailable, buffer
+        # records in memory and flush to JSON files.
+        self._local_storage_dir = local_storage_dir
+        self._local_buffer: Dict[str, List[dict]] = {}  # key: "permits/{town_id}" etc.
 
     # ── Background Loop ───────────────────────────────────────────────────
 
@@ -52,13 +65,31 @@ class ScrapeScheduler:
         Checks for pending jobs every `check_interval_s` seconds.
         """
         self._running = True
+        self._consecutive_failures = 0
         logger.info("[Scheduler] Started — checking every %.0fs", check_interval_s)
 
         while self._running:
+            self._last_heartbeat = datetime.now(timezone.utc)
             try:
                 await self.run_all_pending()
+                self._consecutive_failures = 0
             except Exception as exc:
-                logger.error("[Scheduler] Error in run cycle: %s", exc)
+                self._consecutive_failures += 1
+                logger.error(
+                    "[Scheduler] Error in run cycle (%d consecutive): %s",
+                    self._consecutive_failures,
+                    exc,
+                )
+                # Back off on repeated failures to avoid tight error loops
+                if self._consecutive_failures >= 3:
+                    backoff = min(check_interval_s * 2, 1800.0)
+                    logger.warning(
+                        "[Scheduler] %d consecutive failures — backing off %.0fs",
+                        self._consecutive_failures,
+                        backoff,
+                    )
+                    await asyncio.sleep(backoff)
+                    continue
 
             await asyncio.sleep(check_interval_s)
 
@@ -66,6 +97,260 @@ class ScrapeScheduler:
         """Stop the scheduler."""
         self._running = False
         logger.info("[Scheduler] Stopped")
+
+    @property
+    def is_alive(self) -> bool:
+        """Return True if the scheduler loop has sent a heartbeat recently."""
+        if not self._running or self._last_heartbeat is None:
+            return False
+        age = (datetime.now(timezone.utc) - self._last_heartbeat).total_seconds()
+        # Should heartbeat every check_interval_s (~300s) + generous margin
+        return age < 900  # 15 minutes
+
+    # ── Status & Parallel Execution ──────────────────────────────────────
+
+    async def get_scrape_status(self) -> Dict[str, Any]:
+        """Check scrape completion status for all towns and job types.
+
+        Returns a dict with:
+          - completed: list of {town_id, source_type, completed_at}
+          - pending: list of {town_id, source_type, reason}
+          - running: list of {town_id, source_type, started_at}
+          - summary: {total, completed, pending, running}
+        """
+        towns = get_all_towns()
+        completed = []
+        pending = []
+        running = []
+
+        job_types = [
+            ("property_transfers", "transfers_scrape_interval_hours"),
+            ("meeting_minutes", "minutes_scrape_interval_hours"),
+            ("permits", "permits_scrape_interval_hours"),
+        ]
+
+        for town_id, town in towns.items():
+            for source_type, interval_attr in job_types:
+                hours = getattr(town, interval_attr)
+
+                # Check for currently running jobs
+                if self.supabase:
+                    try:
+                        running_rows = await self.supabase.fetch(
+                            table="scrape_jobs",
+                            select="id,started_at",
+                            filters={
+                                "town_id": f"eq.{town_id}",
+                                "source_type": f"eq.{source_type}",
+                                "status": "eq.running",
+                            },
+                            limit=1,
+                        )
+                        if running_rows:
+                            running.append({
+                                "town_id": town_id,
+                                "town_name": town.name,
+                                "source_type": source_type,
+                                "started_at": running_rows[0].get("started_at"),
+                            })
+                            continue
+                    except Exception:
+                        pass
+
+                due = await self._is_job_due(town_id, source_type, hours=hours)
+                if due:
+                    # Check if it ever ran
+                    reason = "never_run"
+                    if self.supabase:
+                        try:
+                            any_rows = await self.supabase.fetch(
+                                table="scrape_jobs",
+                                select="status,error_message",
+                                filters={
+                                    "town_id": f"eq.{town_id}",
+                                    "source_type": f"eq.{source_type}",
+                                },
+                                order="started_at.desc",
+                                limit=1,
+                            )
+                            if any_rows:
+                                last = any_rows[0]
+                                if last.get("status") == "failed":
+                                    reason = f"last_failed: {last.get('error_message', 'unknown')}"
+                                else:
+                                    reason = "overdue"
+                        except Exception:
+                            reason = "unknown"
+
+                    pending.append({
+                        "town_id": town_id,
+                        "town_name": town.name,
+                        "source_type": source_type,
+                        "portal_type": town.permit_portal_type,
+                        "reason": reason,
+                    })
+                else:
+                    # Get last completion info
+                    completed_at = None
+                    if self.supabase:
+                        try:
+                            rows = await self.supabase.fetch(
+                                table="scrape_jobs",
+                                select="completed_at,records_found,records_new",
+                                filters={
+                                    "town_id": f"eq.{town_id}",
+                                    "source_type": f"eq.{source_type}",
+                                    "status": "eq.completed",
+                                },
+                                order="completed_at.desc",
+                                limit=1,
+                            )
+                            if rows:
+                                completed_at = rows[0].get("completed_at")
+                        except Exception:
+                            pass
+
+                    completed.append({
+                        "town_id": town_id,
+                        "town_name": town.name,
+                        "source_type": source_type,
+                        "completed_at": completed_at,
+                    })
+
+        total = len(completed) + len(pending) + len(running)
+        return {
+            "completed": completed,
+            "pending": pending,
+            "running": running,
+            "summary": {
+                "total": total,
+                "completed": len(completed),
+                "pending": len(pending),
+                "running": len(running),
+            },
+        }
+
+    async def run_pending_parallel(
+        self,
+        max_concurrency: int = 4,
+        source_types: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Run all pending/overdue scrape jobs in parallel.
+
+        Spawns up to ``max_concurrency`` concurrent tasks, each handling one
+        town+source_type combination.  Returns aggregated results.
+
+        Args:
+            max_concurrency: Max simultaneous scrape tasks.
+            source_types: Filter to specific types (e.g. ["permits"]).
+                          Default: all types.
+        """
+        status = await self.get_scrape_status()
+        pending_jobs = status["pending"]
+
+        if source_types:
+            allowed = set(source_types)
+            pending_jobs = [j for j in pending_jobs if j["source_type"] in allowed]
+
+        if not pending_jobs:
+            logger.info("[Scheduler] No pending jobs to run in parallel")
+            return {"results": [], "summary": status["summary"]}
+
+        logger.info(
+            "[Scheduler] Running %d pending jobs in parallel (max_concurrency=%d)",
+            len(pending_jobs),
+            max_concurrency,
+        )
+
+        semaphore = asyncio.Semaphore(max_concurrency)
+        results = []
+
+        async def _run_one(job: dict) -> dict:
+            town_id = job["town_id"]
+            source_type = job["source_type"]
+            town = get_all_towns().get(town_id)
+            if not town:
+                return {"town_id": town_id, "source_type": source_type, "error": "town_not_found"}
+
+            async with semaphore:
+                logger.info(
+                    "[Scheduler] Parallel: starting %s/%s",
+                    town_id, source_type,
+                )
+                try:
+                    if source_type == "property_transfers":
+                        result = await asyncio.wait_for(
+                            self.run_transfers_scrape(town),
+                            timeout=self.TOWN_TIMEOUT_S,
+                        )
+                    elif source_type == "meeting_minutes":
+                        result = await asyncio.wait_for(
+                            self.run_minutes_scrape(town),
+                            timeout=self.TOWN_TIMEOUT_S,
+                        )
+                    elif source_type == "permits":
+                        result = await asyncio.wait_for(
+                            self.run_permits_scrape(town),
+                            timeout=self.TOWN_TIMEOUT_S,
+                        )
+                    else:
+                        result = {"error": f"unknown_source_type: {source_type}"}
+
+                    result["source_type"] = source_type
+                    return result
+
+                except asyncio.TimeoutError:
+                    logger.error(
+                        "[Scheduler] Parallel: %s/%s timed out after %.0fs",
+                        town_id, source_type, self.TOWN_TIMEOUT_S,
+                    )
+                    return {
+                        "town_id": town_id,
+                        "source_type": source_type,
+                        "error": "timeout",
+                    }
+                except Exception as exc:
+                    logger.error(
+                        "[Scheduler] Parallel: %s/%s failed: %s",
+                        town_id, source_type, exc,
+                    )
+                    return {
+                        "town_id": town_id,
+                        "source_type": source_type,
+                        "error": str(exc),
+                    }
+
+        tasks = [asyncio.create_task(_run_one(job)) for job in pending_jobs]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Normalize exceptions into dicts
+        final_results = []
+        for i, r in enumerate(results):
+            if isinstance(r, Exception):
+                final_results.append({
+                    "town_id": pending_jobs[i]["town_id"],
+                    "source_type": pending_jobs[i]["source_type"],
+                    "error": str(r),
+                })
+            else:
+                final_results.append(r)
+
+        succeeded = sum(1 for r in final_results if "error" not in r)
+        failed = len(final_results) - succeeded
+
+        logger.info(
+            "[Scheduler] Parallel scrape complete: %d succeeded, %d failed out of %d",
+            succeeded, failed, len(final_results),
+        )
+
+        return {
+            "results": final_results,
+            "summary": {
+                "dispatched": len(final_results),
+                "succeeded": succeeded,
+                "failed": failed,
+            },
+        }
 
     # ── Job Execution ─────────────────────────────────────────────────────
 
@@ -75,7 +360,16 @@ class ScrapeScheduler:
 
         for town_id, town in towns.items():
             try:
-                await self._check_and_run_town(town)
+                await asyncio.wait_for(
+                    self._check_and_run_town(town),
+                    timeout=self.TOWN_TIMEOUT_S,
+                )
+            except asyncio.TimeoutError:
+                logger.error(
+                    "[Scheduler] Town %s timed out after %.0fs — skipping",
+                    town_id,
+                    self.TOWN_TIMEOUT_S,
+                )
             except Exception as exc:
                 logger.error("[Scheduler] Error processing %s: %s", town_id, exc)
 
@@ -196,10 +490,7 @@ class ScrapeScheduler:
             return {"town": town.id, "error": str(exc)}
 
     async def _insert_transfer(self, town_id: str, sale: dict):
-        """Insert a property transfer record into Supabase."""
-        if not self.supabase:
-            return
-
+        """Insert a property transfer record into Supabase or local buffer."""
         bld_area = sale.get("building_area_sqft") or 0
         price = sale.get("last_sale_price") or 0
         price_per_sqft = round(price / bld_area, 2) if bld_area > 100 and price > 0 else None
@@ -226,10 +517,15 @@ class ScrapeScheduler:
             "fiscal_year": sale.get("fiscal_year"),
         }
 
-        try:
-            await self.supabase.insert("property_transfers", record)
-        except Exception as exc:
-            logger.warning("[Scheduler] Insert transfer error: %s", exc)
+        if self.supabase:
+            try:
+                await self.supabase.insert("property_transfers", record)
+            except Exception as exc:
+                logger.warning("[Scheduler] Insert transfer error: %s", exc)
+
+        if self._local_storage_dir is not None:
+            key = f"transfers/{town_id}"
+            self._local_buffer.setdefault(key, []).append(record)
 
     # ── Meeting Minutes Scrape ────────────────────────────────────────────
 
@@ -360,26 +656,28 @@ class ScrapeScheduler:
         normalized = normalize_batch(raw_permits, town_key)
 
         new_count = 0
-        if self.supabase and normalized:
+        if normalized:
             for permit in normalized:
                 permit_number = permit.get("permit_number", "")
                 if not permit_number:
                     continue
 
-                # Dedup by permit_number + town
-                existing = await self.supabase.fetch(
-                    table="permits",
-                    select="id",
-                    filters={
-                        "permit_number": f"eq.{permit_number}",
-                        "town_id": f"eq.{town.id}",
-                    },
-                    limit=1,
-                )
+                # Dedup by permit_number + town (only when Supabase is available)
+                if self.supabase:
+                    existing = await self.supabase.fetch(
+                        table="permits",
+                        select="id",
+                        filters={
+                            "permit_number": f"eq.{permit_number}",
+                            "town_id": f"eq.{town.id}",
+                        },
+                        limit=1,
+                    )
+                    if existing:
+                        continue
 
-                if not existing:
-                    await self._insert_permit(town.id, permit)
-                    new_count += 1
+                await self._insert_permit(town.id, permit)
+                new_count += 1
 
         logger.info(
             "[Scheduler] Socrata for %s: %d raw, %d normalized, %d new",
@@ -911,10 +1209,7 @@ class ScrapeScheduler:
         return []
 
     async def _insert_permit(self, town_id: str, permit: dict):
-        """Insert a normalized permit record into Supabase."""
-        if not self.supabase:
-            return
-
+        """Insert a normalized permit record into Supabase or local buffer."""
         from .connectors.normalize import parse_date
 
         record = {
@@ -937,10 +1232,71 @@ class ScrapeScheduler:
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        try:
-            await self.supabase.insert("permits", record)
-        except Exception as exc:
-            logger.warning("[Scheduler] Insert permit error: %s", exc)
+        if self.supabase:
+            try:
+                await self.supabase.insert("permits", record)
+            except Exception as exc:
+                logger.warning("[Scheduler] Insert permit error: %s", exc)
+
+        # Buffer locally for JSON file export
+        if self._local_storage_dir is not None:
+            key = f"permits/{town_id}"
+            self._local_buffer.setdefault(key, []).append(record)
+
+    # ── Local File Storage ─────────────────────────────────────────────────
+
+    def flush_to_files(self) -> Dict[str, int]:
+        """Write buffered records to JSON files on disk.
+
+        Returns dict mapping file paths to record counts written.
+        """
+        import os
+
+        if not self._local_storage_dir:
+            return {}
+
+        os.makedirs(self._local_storage_dir, exist_ok=True)
+        written = {}
+
+        for key, records in self._local_buffer.items():
+            if not records:
+                continue
+
+            # key is like "permits/newton" or "transfers/wellesley"
+            parts = key.split("/", 1)
+            table_name = parts[0]
+            town_id = parts[1] if len(parts) > 1 else "unknown"
+
+            subdir = os.path.join(self._local_storage_dir, table_name)
+            os.makedirs(subdir, exist_ok=True)
+
+            filepath = os.path.join(subdir, f"{town_id}.json")
+
+            # Merge with existing file if present
+            existing = []
+            if os.path.exists(filepath):
+                try:
+                    with open(filepath, "r") as f:
+                        existing = json.load(f)
+                except (json.JSONDecodeError, OSError):
+                    existing = []
+
+            # Dedup by id
+            existing_ids = {r.get("id") for r in existing}
+            merged = existing + [r for r in records if r.get("id") not in existing_ids]
+
+            with open(filepath, "w") as f:
+                json.dump(merged, f, indent=2, default=str)
+
+            written[filepath] = len(merged)
+            logger.info(
+                "[Scheduler] Flushed %d records to %s (%d new)",
+                len(merged), filepath, len(records),
+            )
+
+        # Clear buffer after flush
+        self._local_buffer.clear()
+        return written
 
     # ── Job Tracking ──────────────────────────────────────────────────────
 

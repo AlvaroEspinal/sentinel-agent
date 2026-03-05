@@ -100,8 +100,43 @@ async def lifespan(app: FastAPI):
         "llm_extractor": llm_extractor,
     })
 
-    # ── Start background scrape scheduler ──
-    scheduler_task = asyncio.create_task(scrape_scheduler.start(check_interval_s=300.0))
+    # ── Start background scrape scheduler with watchdog ──
+    check_interval = 300.0
+
+    def _start_scheduler_task() -> asyncio.Task:
+        task = asyncio.create_task(
+            scrape_scheduler.start(check_interval_s=check_interval)
+        )
+        task.set_name("scrape-scheduler")
+        return task
+
+    scheduler_task = _start_scheduler_task()
+
+    async def _watchdog(interval: float = 60.0):
+        """Monitor the scheduler task and restart it if it exits unexpectedly."""
+        nonlocal scheduler_task
+        while True:
+            await asyncio.sleep(interval)
+            if scheduler_task.done():
+                exc = scheduler_task.exception() if not scheduler_task.cancelled() else None
+                if exc:
+                    logger.error("[Watchdog] Scheduler died with: %s — restarting", exc)
+                else:
+                    logger.warning("[Watchdog] Scheduler exited unexpectedly — restarting")
+                scrape_scheduler._running = False
+                scheduler_task = _start_scheduler_task()
+            elif not scrape_scheduler.is_alive:
+                logger.warning("[Watchdog] Scheduler heartbeat stale — restarting")
+                scrape_scheduler.stop()
+                scheduler_task.cancel()
+                try:
+                    await scheduler_task
+                except asyncio.CancelledError:
+                    pass
+                scheduler_task = _start_scheduler_task()
+
+    watchdog_task = asyncio.create_task(_watchdog())
+    watchdog_task.set_name("scheduler-watchdog")
 
     logger.info("=" * 60)
     logger.info("  PARCL INTELLIGENCE - ONLINE")
@@ -110,20 +145,22 @@ async def lifespan(app: FastAPI):
     logger.info(f"  Permits:    {permit_loader.count:,} ({mode})")
     logger.info(f"  Database:   {'Supabase REST' if supabase_client else 'demo JSON'}")
     logger.info(f"  Firecrawl:  {'active' if firecrawl_client else 'not configured'}")
-    logger.info(f"  Scheduler:  active (12 towns)")
+    logger.info(f"  Scheduler:  active (12 towns, watchdog enabled)")
     logger.info("=" * 60)
 
     yield
 
     # ── Shutdown ──
     logger.info("Parcl Intelligence shutting down...")
+    watchdog_task.cancel()
     scrape_scheduler.stop()
     scheduler_task.cancel()
 
-    try:
-        await scheduler_task
-    except asyncio.CancelledError:
-        pass
+    for task in (watchdog_task, scheduler_task):
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
     if supabase_client:
         await supabase_client.disconnect()
