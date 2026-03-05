@@ -43,6 +43,7 @@ class ScrapeScheduler:
         supabase: Optional[Any] = None,
         firecrawl: Optional[FirecrawlClient] = None,
         llm_extractor: Optional[LLMExtractor] = None,
+        local_storage_dir: Optional[str] = None,
     ):
         self.supabase = supabase
         self.firecrawl = firecrawl
@@ -50,6 +51,11 @@ class ScrapeScheduler:
         self._running = False
         self._last_heartbeat: Optional[datetime] = None
         self._consecutive_failures: int = 0
+
+        # Local file storage mode: when Supabase is unavailable, buffer
+        # records in memory and flush to JSON files.
+        self._local_storage_dir = local_storage_dir
+        self._local_buffer: Dict[str, List[dict]] = {}  # key: "permits/{town_id}" etc.
 
     # ── Background Loop ───────────────────────────────────────────────────
 
@@ -484,10 +490,7 @@ class ScrapeScheduler:
             return {"town": town.id, "error": str(exc)}
 
     async def _insert_transfer(self, town_id: str, sale: dict):
-        """Insert a property transfer record into Supabase."""
-        if not self.supabase:
-            return
-
+        """Insert a property transfer record into Supabase or local buffer."""
         bld_area = sale.get("building_area_sqft") or 0
         price = sale.get("last_sale_price") or 0
         price_per_sqft = round(price / bld_area, 2) if bld_area > 100 and price > 0 else None
@@ -514,10 +517,15 @@ class ScrapeScheduler:
             "fiscal_year": sale.get("fiscal_year"),
         }
 
-        try:
-            await self.supabase.insert("property_transfers", record)
-        except Exception as exc:
-            logger.warning("[Scheduler] Insert transfer error: %s", exc)
+        if self.supabase:
+            try:
+                await self.supabase.insert("property_transfers", record)
+            except Exception as exc:
+                logger.warning("[Scheduler] Insert transfer error: %s", exc)
+
+        if self._local_storage_dir is not None:
+            key = f"transfers/{town_id}"
+            self._local_buffer.setdefault(key, []).append(record)
 
     # ── Meeting Minutes Scrape ────────────────────────────────────────────
 
@@ -1199,10 +1207,7 @@ class ScrapeScheduler:
         return []
 
     async def _insert_permit(self, town_id: str, permit: dict):
-        """Insert a normalized permit record into Supabase."""
-        if not self.supabase:
-            return
-
+        """Insert a normalized permit record into Supabase or local buffer."""
         from .connectors.normalize import parse_date
 
         record = {
@@ -1225,10 +1230,71 @@ class ScrapeScheduler:
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        try:
-            await self.supabase.insert("permits", record)
-        except Exception as exc:
-            logger.warning("[Scheduler] Insert permit error: %s", exc)
+        if self.supabase:
+            try:
+                await self.supabase.insert("permits", record)
+            except Exception as exc:
+                logger.warning("[Scheduler] Insert permit error: %s", exc)
+
+        # Buffer locally for JSON file export
+        if self._local_storage_dir is not None:
+            key = f"permits/{town_id}"
+            self._local_buffer.setdefault(key, []).append(record)
+
+    # ── Local File Storage ─────────────────────────────────────────────────
+
+    def flush_to_files(self) -> Dict[str, int]:
+        """Write buffered records to JSON files on disk.
+
+        Returns dict mapping file paths to record counts written.
+        """
+        import os
+
+        if not self._local_storage_dir:
+            return {}
+
+        os.makedirs(self._local_storage_dir, exist_ok=True)
+        written = {}
+
+        for key, records in self._local_buffer.items():
+            if not records:
+                continue
+
+            # key is like "permits/newton" or "transfers/wellesley"
+            parts = key.split("/", 1)
+            table_name = parts[0]
+            town_id = parts[1] if len(parts) > 1 else "unknown"
+
+            subdir = os.path.join(self._local_storage_dir, table_name)
+            os.makedirs(subdir, exist_ok=True)
+
+            filepath = os.path.join(subdir, f"{town_id}.json")
+
+            # Merge with existing file if present
+            existing = []
+            if os.path.exists(filepath):
+                try:
+                    with open(filepath, "r") as f:
+                        existing = json.load(f)
+                except (json.JSONDecodeError, OSError):
+                    existing = []
+
+            # Dedup by id
+            existing_ids = {r.get("id") for r in existing}
+            merged = existing + [r for r in records if r.get("id") not in existing_ids]
+
+            with open(filepath, "w") as f:
+                json.dump(merged, f, indent=2, default=str)
+
+            written[filepath] = len(merged)
+            logger.info(
+                "[Scheduler] Flushed %d records to %s (%d new)",
+                len(merged), filepath, len(records),
+            )
+
+        # Clear buffer after flush
+        self._local_buffer.clear()
+        return written
 
     # ── Job Tracking ──────────────────────────────────────────────────────
 
