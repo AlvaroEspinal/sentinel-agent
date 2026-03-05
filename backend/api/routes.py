@@ -24,6 +24,8 @@ def _get(key: str):
 
 @router.get("/health")
 async def health():
+    scheduler = _get("scrape_scheduler")
+    scheduler_alive = scheduler.is_alive if scheduler else False
     return {
         "status": "ok",
         "timestamp": datetime.utcnow().isoformat(),
@@ -31,7 +33,8 @@ async def health():
             "permit_loader": _get("permit_loader") is not None,
             "permit_search": _get("permit_search") is not None,
             "supabase": _get("supabase_client") is not None,
-            "scrape_scheduler": _get("scrape_scheduler") is not None,
+            "scrape_scheduler": scheduler is not None,
+            "scrape_scheduler_alive": scheduler_alive,
             "firecrawl": _get("firecrawl_client") is not None,
             "llm_extractor": _get("llm_extractor") is not None,
         },

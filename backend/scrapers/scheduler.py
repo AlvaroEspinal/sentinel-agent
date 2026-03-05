@@ -33,6 +33,11 @@ from .connectors.firecrawl_client import FirecrawlClient
 class ScrapeScheduler:
     """Manages recurring scrape jobs for all target towns."""
 
+    # Maximum time (seconds) a single town scrape cycle may run before being
+    # cancelled.  Prevents a hanging HTTP request from blocking the entire
+    # scheduler loop.
+    TOWN_TIMEOUT_S: float = 600.0  # 10 minutes
+
     def __init__(
         self,
         supabase: Optional[Any] = None,
@@ -43,6 +48,8 @@ class ScrapeScheduler:
         self.firecrawl = firecrawl
         self.llm = llm_extractor
         self._running = False
+        self._last_heartbeat: Optional[datetime] = None
+        self._consecutive_failures: int = 0
 
     # ── Background Loop ───────────────────────────────────────────────────
 
@@ -52,13 +59,31 @@ class ScrapeScheduler:
         Checks for pending jobs every `check_interval_s` seconds.
         """
         self._running = True
+        self._consecutive_failures = 0
         logger.info("[Scheduler] Started — checking every %.0fs", check_interval_s)
 
         while self._running:
+            self._last_heartbeat = datetime.now(timezone.utc)
             try:
                 await self.run_all_pending()
+                self._consecutive_failures = 0
             except Exception as exc:
-                logger.error("[Scheduler] Error in run cycle: %s", exc)
+                self._consecutive_failures += 1
+                logger.error(
+                    "[Scheduler] Error in run cycle (%d consecutive): %s",
+                    self._consecutive_failures,
+                    exc,
+                )
+                # Back off on repeated failures to avoid tight error loops
+                if self._consecutive_failures >= 3:
+                    backoff = min(check_interval_s * 2, 1800.0)
+                    logger.warning(
+                        "[Scheduler] %d consecutive failures — backing off %.0fs",
+                        self._consecutive_failures,
+                        backoff,
+                    )
+                    await asyncio.sleep(backoff)
+                    continue
 
             await asyncio.sleep(check_interval_s)
 
@@ -66,6 +91,15 @@ class ScrapeScheduler:
         """Stop the scheduler."""
         self._running = False
         logger.info("[Scheduler] Stopped")
+
+    @property
+    def is_alive(self) -> bool:
+        """Return True if the scheduler loop has sent a heartbeat recently."""
+        if not self._running or self._last_heartbeat is None:
+            return False
+        age = (datetime.now(timezone.utc) - self._last_heartbeat).total_seconds()
+        # Should heartbeat every check_interval_s (~300s) + generous margin
+        return age < 900  # 15 minutes
 
     # ── Job Execution ─────────────────────────────────────────────────────
 
@@ -75,7 +109,16 @@ class ScrapeScheduler:
 
         for town_id, town in towns.items():
             try:
-                await self._check_and_run_town(town)
+                await asyncio.wait_for(
+                    self._check_and_run_town(town),
+                    timeout=self.TOWN_TIMEOUT_S,
+                )
+            except asyncio.TimeoutError:
+                logger.error(
+                    "[Scheduler] Town %s timed out after %.0fs — skipping",
+                    town_id,
+                    self.TOWN_TIMEOUT_S,
+                )
             except Exception as exc:
                 logger.error("[Scheduler] Error processing %s: %s", town_id, exc)
 
