@@ -99,6 +99,11 @@ interface ParclState {
   showProperties: boolean;
   showFloodZones: boolean;
   showParcels: boolean;
+  showWetlands: boolean;
+  showConservation: boolean;
+  showZoning: boolean;
+  showMepa: boolean;
+  showTaxDelinquency: boolean;
   searchQuery: string;
   isSearching: boolean;
   isChatLoading: boolean;
@@ -138,6 +143,11 @@ interface ParclState {
   toggleProperties: () => void;
   toggleFloodZones: () => void;
   toggleParcels: () => void;
+  toggleWetlands: () => void;
+  toggleConservation: () => void;
+  toggleZoning: () => void;
+  toggleMepa: () => void;
+  toggleTaxDelinquency: () => void;
   setSearchQuery: (query: string) => void;
   setIsSearching: (searching: boolean) => void;
 
@@ -214,6 +224,11 @@ export const useStore = create<ParclState>((set, get) => ({
   showProperties: true,
   showFloodZones: false,
   showParcels: false,
+  showWetlands: false,
+  showConservation: false,
+  showZoning: false,
+  showMepa: false,
+  showTaxDelinquency: false,
   searchQuery: "",
   isSearching: false,
   isChatLoading: false,
@@ -288,6 +303,21 @@ export const useStore = create<ParclState>((set, get) => ({
   toggleParcels: () =>
     set((state) => ({ showParcels: !state.showParcels })),
 
+  toggleWetlands: () =>
+    set((state) => ({ showWetlands: !state.showWetlands })),
+
+  toggleConservation: () =>
+    set((state) => ({ showConservation: !state.showConservation })),
+
+  toggleZoning: () =>
+    set((state) => ({ showZoning: !state.showZoning })),
+
+  toggleMepa: () =>
+    set((state) => ({ showMepa: !state.showMepa })),
+
+  toggleTaxDelinquency: () =>
+    set((state) => ({ showTaxDelinquency: !state.showTaxDelinquency })),
+
   setSearchQuery: (query) => set({ searchQuery: query }),
 
   setIsSearching: (searching) => set({ isSearching: searching }),
@@ -353,14 +383,14 @@ export const useStore = create<ParclState>((set, get) => ({
         selectedListingId: listing.id,
         ...(hasValidCoords
           ? {
-              cameraTarget: {
-                lat: listing.latitude,
-                lon: listing.longitude,
-                altitude: 1000,
-                heading: 0,
-                pitch: -35,
-              },
-            }
+            cameraTarget: {
+              lat: listing.latitude,
+              lon: listing.longitude,
+              altitude: 1000,
+              heading: 0,
+              pitch: -35,
+            },
+          }
           : {}),
       };
     });
@@ -396,14 +426,14 @@ export const useStore = create<ParclState>((set, get) => ({
         selectedListingId: id,
         ...(hasValidCoords
           ? {
-              cameraTarget: {
-                lat: listing.latitude,
-                lon: listing.longitude,
-                altitude: 1000,
-                heading: 0,
-                pitch: -35,
-              },
-            }
+            cameraTarget: {
+              lat: listing.latitude,
+              lon: listing.longitude,
+              altitude: 1000,
+              heading: 0,
+              pitch: -35,
+            },
+          }
           : {}),
       });
     }
@@ -441,14 +471,14 @@ export const useStore = create<ParclState>((set, get) => ({
       leftPanelTab: "summary",
       ...(hasValidCoords
         ? {
-            cameraTarget: {
-              lat: property.latitude,
-              lon: property.longitude,
-              altitude: 1000,
-              heading: 0,
-              pitch: -35,
-            },
-          }
+          cameraTarget: {
+            lat: property.latitude,
+            lon: property.longitude,
+            altitude: 1000,
+            heading: 0,
+            pitch: -35,
+          },
+        }
         : {}),
     });
   },

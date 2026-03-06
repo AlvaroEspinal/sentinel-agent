@@ -9,6 +9,11 @@ import {
   Camera,
   Waves,
   Activity,
+  Droplets,
+  TreePine,
+  Map,
+  BadgeAlert,
+  AlertTriangle,
 } from "lucide-react";
 import { useStore, MARKETS, MARKET_NAMES } from "../../store/useStore";
 
@@ -19,14 +24,12 @@ const Toggle: React.FC<{ isOn: boolean; onToggle: () => void }> = ({
 }) => (
   <button
     onClick={onToggle}
-    className={`relative w-8 h-4 rounded-full transition-colors ${
-      isOn ? "bg-parcl-accent" : "bg-parcl-border"
-    }`}
+    className={`relative w-8 h-4 rounded-full transition-colors ${isOn ? "bg-parcl-accent" : "bg-parcl-border"
+      }`}
   >
     <div
-      className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
-        isOn ? "translate-x-4" : "translate-x-0.5"
-      }`}
+      className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${isOn ? "translate-x-4" : "translate-x-0.5"
+        }`}
     />
   </button>
 );
@@ -89,9 +92,20 @@ const LeftSidebar: React.FC = () => {
   const showPermits = useStore((s) => s.showPermits);
   const showFloodZones = useStore((s) => s.showFloodZones);
   const showParcels = useStore((s) => s.showParcels);
+  const showWetlands = useStore((s) => s.showWetlands);
+  const showConservation = useStore((s) => s.showConservation);
+  const showZoning = useStore((s) => s.showZoning);
+  const showMepa = useStore((s) => s.showMepa);
+  const showTaxDelinquency = useStore((s) => s.showTaxDelinquency);
+
   const togglePermits = useStore((s) => s.togglePermits);
   const toggleFloodZones = useStore((s) => s.toggleFloodZones);
   const toggleParcels = useStore((s) => s.toggleParcels);
+  const toggleWetlands = useStore((s) => s.toggleWetlands);
+  const toggleConservation = useStore((s) => s.toggleConservation);
+  const toggleZoning = useStore((s) => s.toggleZoning);
+  const toggleMepa = useStore((s) => s.toggleMepa);
+  const toggleTaxDelinquency = useStore((s) => s.toggleTaxDelinquency);
 
   // Local UI state
   const [dataLayersOpen, setDataLayersOpen] = useState(true);
@@ -121,6 +135,41 @@ const LeftSidebar: React.FC = () => {
       count: null,
       isOn: showParcels,
       onToggle: toggleParcels,
+    },
+    {
+      icon: <Droplets className="w-3.5 h-3.5 text-teal-400" />,
+      label: "Wetlands",
+      count: null,
+      isOn: showWetlands,
+      onToggle: toggleWetlands,
+    },
+    {
+      icon: <TreePine className="w-3.5 h-3.5 text-emerald-400" />,
+      label: "Protected Open Space",
+      count: null,
+      isOn: showConservation,
+      onToggle: toggleConservation,
+    },
+    {
+      icon: <Map className="w-3.5 h-3.5 text-indigo-400" />,
+      label: "Zoning Districts (Boston)",
+      count: null,
+      isOn: showZoning,
+      onToggle: toggleZoning,
+    },
+    {
+      icon: <BadgeAlert className="w-3.5 h-3.5 text-orange-400" />,
+      label: "MEPA Environmental Filings",
+      count: null,
+      isOn: showMepa,
+      onToggle: toggleMepa,
+    },
+    {
+      icon: <AlertTriangle className="w-3.5 h-3.5 text-red-500" />,
+      label: "Tax Delinquencies",
+      count: null,
+      isOn: showTaxDelinquency,
+      onToggle: toggleTaxDelinquency,
     },
   ];
 
@@ -166,11 +215,10 @@ const LeftSidebar: React.FC = () => {
                 <button
                   key={listing.id}
                   onClick={() => selectListing(listing.id)}
-                  className={`w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors ${
-                    selectedListingId === listing.id
-                      ? "bg-parcl-accent/10 text-parcl-accent"
-                      : "text-parcl-text-dim hover:text-parcl-text hover:bg-parcl-surface"
-                  }`}
+                  className={`w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors ${selectedListingId === listing.id
+                    ? "bg-parcl-accent/10 text-parcl-accent"
+                    : "text-parcl-text-dim hover:text-parcl-text hover:bg-parcl-surface"
+                    }`}
                 >
                   {/* Agent indicator */}
                   <div className="flex-shrink-0">
@@ -215,11 +263,10 @@ const LeftSidebar: React.FC = () => {
               <button
                 key={poi.id}
                 onClick={() => navigateToPOI(index)}
-                className={`flex items-center gap-2 px-2 py-1.5 text-[10px] rounded cursor-pointer transition-colors w-full text-left ${
-                  activePOIIndex === index
-                    ? "bg-parcl-accent/10 text-parcl-accent"
-                    : "text-parcl-text-dim hover:text-parcl-text hover:bg-parcl-surface"
-                }`}
+                className={`flex items-center gap-2 px-2 py-1.5 text-[10px] rounded cursor-pointer transition-colors w-full text-left ${activePOIIndex === index
+                  ? "bg-parcl-accent/10 text-parcl-accent"
+                  : "text-parcl-text-dim hover:text-parcl-text hover:bg-parcl-surface"
+                  }`}
               >
                 <MapPin className="w-3 h-3 flex-shrink-0" />
                 {poi.name}

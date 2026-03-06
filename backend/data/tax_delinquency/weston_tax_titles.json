@@ -1,0 +1,499 @@
+[
+  {
+    "address": "43 ST EDWARD RD",
+    "owner": "HEFFRON WILLIAM G\nHEFFRON ANN MARIE",
+    "amount_owed": "$697.02",
+    "parcel_id": "WARD 01 PARCEL 01324-000",
+    "year": "2023"
+  },
+  {
+    "address": "439 CHELSEA ST",
+    "owner": "439 CHELSEA REALTY LLC",
+    "amount_owed": "$1,568.65",
+    "parcel_id": "WARD 01 PARCEL 00459-000",
+    "year": "2023"
+  },
+  {
+    "address": "121 ADDISON ST",
+    "owner": "119-121 ADDISON STREET REALTY WM F MCCLELLAN HW\nTRUST\nNICKERSON RAYMOND",
+    "amount_owed": "$12,132.89",
+    "parcel_id": "WARD 01 PARCEL 00603-000",
+    "year": "2023"
+  },
+  {
+    "address": "119 ADDISON ST",
+    "owner": "119-121 ADDISON STREET REALTY\nTRUST\nNICKERSON RAYMOND",
+    "amount_owed": "$7,983.77",
+    "parcel_id": "WARD 01 PARCEL 00603-010",
+    "year": "2023"
+  },
+  {
+    "address": "316 PRINCETON ST",
+    "owner": "OCHOA HECTOR\nCALLEJAS JOSE A",
+    "amount_owed": "$3,162.89",
+    "parcel_id": "WARD 01 PARCEL 00182-000",
+    "year": "2023"
+  },
+  {
+    "address": "312 PRINCETON ST",
+    "owner": "SANTON RAUL",
+    "amount_owed": "$2,412.56",
+    "parcel_id": "WARD 01 PARCEL 00184-000",
+    "year": "2023"
+  },
+  {
+    "address": "30 SHELBY ST",
+    "owner": "30 PROPERTIES LLC",
+    "amount_owed": "$5,572.57",
+    "parcel_id": "WARD 01 PARCEL 00306-000",
+    "year": "2023"
+  },
+  {
+    "address": "FRANKFORT ST",
+    "owner": "441 FRANKFORT STREET LLC",
+    "amount_owed": "$925.80",
+    "parcel_id": "WARD 01 PARCEL 00375-000",
+    "year": "2023"
+  },
+  {
+    "address": "MOORE ST",
+    "owner": "MONTEMURRO MARIO ETAL\nFRANCESCA MONTEMURRO BE",
+    "amount_owed": "$151.27",
+    "parcel_id": "WARD 01 PARCEL 00702-000",
+    "year": "2023"
+  },
+  {
+    "address": "80 HORACE ST",
+    "owner": "BEAUDOIN JEANNINE",
+    "amount_owed": "$3,069.35",
+    "parcel_id": "WARD 01 PARCEL 00902-000",
+    "year": "2023"
+  },
+  {
+    "address": "883 885 SARATOGA ST",
+    "owner": "CHILANTE CAROL A IF\nSTONE LISA A JT",
+    "amount_owed": "$1,201.53",
+    "parcel_id": "WARD 01 PARCEL 01059-000",
+    "year": "2023"
+  },
+  {
+    "address": "40 BREED ST",
+    "owner": "FASANO VINCENT J",
+    "amount_owed": "$7,782.67",
+    "parcel_id": "WARD 01 PARCEL 01770-000",
+    "year": "2023"
+  },
+  {
+    "address": "26 GLADSTONE ST Unit 3",
+    "owner": "SANTANA DAVID\nBAEZ GERALDINE",
+    "amount_owed": "$1,201.53",
+    "parcel_id": "WARD 01 PARCEL 01840-006",
+    "year": "2023"
+  },
+  {
+    "address": "192 196 LEYDEN ST Unit 1",
+    "owner": "192-196 LEYDEN STREET\nCONDOMINIUM TRUST\nCONTRERAS JOSE",
+    "amount_owed": "$7,632.74",
+    "parcel_id": "WARD 01 PARCEL 01880-002",
+    "year": "2023"
+  },
+  {
+    "address": "192 196 LEYDEN ST Unit 2",
+    "owner": "192-196 LEYDEN STREET\nCONDOMINIUM TRUST\nCONTRERAS JOSE",
+    "amount_owed": "$8,130.21",
+    "parcel_id": "WARD 01 PARCEL 01880-004",
+    "year": "2023"
+  },
+  {
+    "address": "192 196 LEYDEN ST Unit 3",
+    "owner": "192-196 LEYDEN STREET\nCONDOMINIUM TRUST\nCONTRERAS JOSE",
+    "amount_owed": "$8,439.23",
+    "parcel_id": "WARD 01 PARCEL 01880-006",
+    "year": "2023"
+  },
+  {
+    "address": "188 LEYDEN ST",
+    "owner": "SARRO GERALD W",
+    "amount_owed": "$3,211.59",
+    "parcel_id": "WARD 01 PARCEL 01881-000",
+    "year": "2023"
+  },
+  {
+    "address": "41 GLADSTONE ST",
+    "owner": "GEORGAKLIS JAMES\nBLOMENDALE GRETCHEN",
+    "amount_owed": "$13,528.23",
+    "parcel_id": "WARD 01 PARCEL 01945-000",
+    "year": "2023"
+  },
+  {
+    "address": "87 89 ORIENT AV",
+    "owner": "BELMONTE ANNA M TS\nBELMONTE ANITA M TS",
+    "amount_owed": "$2,690.53",
+    "parcel_id": "WARD 01 PARCEL 02124-000",
+    "year": "2023"
+  },
+  {
+    "address": "116 WALDEMAR AV",
+    "owner": "VIGNOLI LOUISE H",
+    "amount_owed": "$2,690.53",
+    "parcel_id": "WARD 01 PARCEL 02206-000",
+    "year": "2023"
+  },
+  {
+    "address": "20 CRESTWAY RD",
+    "owner": "CRESTWAY ROAD DEVELOPMENT LLC",
+    "amount_owed": "$1,093.55",
+    "parcel_id": "WARD 01 PARCEL 02282-000",
+    "year": "2023"
+  },
+  {
+    "address": "34 PRINCETON ST Unit 3",
+    "owner": "CRONIN DANIEL J\nCRONIN SARAH E",
+    "amount_owed": "$4,427.75",
+    "parcel_id": "WARD 01 PARCEL 02582-006",
+    "year": "2023"
+  },
+  {
+    "address": "5 MONMOUTH ST",
+    "owner": "5 MONMOUTH STREET LLC",
+    "amount_owed": "$273.61",
+    "parcel_id": "WARD 01 PARCEL 02677-000",
+    "year": "2023"
+  },
+  {
+    "address": "38 MONMOUTH ST Unit 1",
+    "owner": "38 MONMOUTH STREET CONDOMINIUM\nTRUST\nKAJJAME KAOUTAR",
+    "amount_owed": "$5,410.24",
+    "parcel_id": "WARD 01 PARCEL 02757-002",
+    "year": "2023"
+  },
+  {
+    "address": "38 MONMOUTH ST Unit 2",
+    "owner": "38 MONMOUTH STREET CONDOMINIUM\nTRUST\nKAJJAME KAOUTAR",
+    "amount_owed": "$7,646.21",
+    "parcel_id": "WARD 01 PARCEL 02757-004",
+    "year": "2023"
+  },
+  {
+    "address": "38 MONMOUTH ST Unit 3",
+    "owner": "38 MONMOUTH STREET CONDOMINIUM\nTRUST\nKAJJAME KAOUTAR",
+    "amount_owed": "$8,295.12",
+    "parcel_id": "WARD 01 PARCEL 02757-006",
+    "year": "2023"
+  },
+  {
+    "address": "80 MARION ST Unit 3",
+    "owner": "ENDLER CHEN\nGOREN ELLA",
+    "amount_owed": "$5,464.37",
+    "parcel_id": "WARD 01 PARCEL 02870-006",
+    "year": "2023"
+  },
+  {
+    "address": "85 LEXINGTON ST Unit 1",
+    "owner": "BRILLY PROPERTIES LLC",
+    "amount_owed": "$7,986.06",
+    "parcel_id": "WARD 01 PARCEL 02920-002",
+    "year": "2023"
+  },
+  {
+    "address": "106 PRINCETON ST",
+    "owner": "AMATO KIMIKO\nKIMIKO AMATO 2019 IRREVOCABLE\nTRUST",
+    "amount_owed": "$7,309.24",
+    "parcel_id": "WARD 01 PARCEL 02956-000",
+    "year": "2023"
+  },
+  {
+    "address": "236 LEXINGTON ST Unit 2",
+    "owner": "HICKS ASHLEY D\nHOUSEMAN RAE ELLEN",
+    "amount_owed": "$3,172.16",
+    "parcel_id": "WARD 01 PARCEL 03179-004",
+    "year": "2023"
+  },
+  {
+    "address": "FALCON ST",
+    "owner": "167-169 FALCON STREET LLC",
+    "amount_owed": "$431.68",
+    "parcel_id": "WARD 01 PARCEL 03269-000",
+    "year": "2023"
+  },
+  {
+    "address": "116 FALCON ST",
+    "owner": "KEHOE THOMAS J\nKEHOE CAMILLE H",
+    "amount_owed": "$6,194.10",
+    "parcel_id": "WARD 01 PARCEL 03344-000",
+    "year": "2023"
+  },
+  {
+    "address": "W EAGLE ST",
+    "owner": "CONWAY JOHN J JR",
+    "amount_owed": "$2,107.93",
+    "parcel_id": "WARD 01 PARCEL 03442-000",
+    "year": "2023"
+  },
+  {
+    "address": "69 FALCON ST Unit 2",
+    "owner": "WILLIAMS LAURA\nMASTERSON STEPHEN F",
+    "amount_owed": "$3,244.48",
+    "parcel_id": "WARD 01 PARCEL 03519-004",
+    "year": "2023"
+  },
+  {
+    "address": "464 MERIDIAN ST Unit 464-B",
+    "owner": "ESCOBAR PAUL",
+    "amount_owed": "$925.80",
+    "parcel_id": "WARD 01 PARCEL 03586-016",
+    "year": "2023"
+  },
+  {
+    "address": "5 FALCON ST",
+    "owner": "5 FALCON LLC",
+    "amount_owed": "$5,767.77",
+    "parcel_id": "WARD 01 PARCEL 03598-000",
+    "year": "2023"
+  },
+  {
+    "address": "396 MERIDIAN ST Unit 1",
+    "owner": "HALL NATHANIEL BROWN",
+    "amount_owed": "$4,259.12",
+    "parcel_id": "WARD 01 PARCEL 03619-002",
+    "year": "2023"
+  },
+  {
+    "address": "396 MERIDIAN ST Unit 3",
+    "owner": "396 MERIDIAN STREET LLC",
+    "amount_owed": "$1,198.52",
+    "parcel_id": "WARD 01 PARCEL 03619-006",
+    "year": "2023"
+  },
+  {
+    "address": "301 BORDER ST",
+    "owner": "BORDER DEVELOPMENT LLC",
+    "amount_owed": "$7,239.42",
+    "parcel_id": "WARD 01 PARCEL 03662-000",
+    "year": "2023"
+  },
+  {
+    "address": "151 CHELSEA ST",
+    "owner": "ROSA ANTHONY",
+    "amount_owed": "$2,834.22",
+    "parcel_id": "WARD 01 PARCEL 03728-000",
+    "year": "2023"
+  },
+  {
+    "address": "FRANKFORT ST",
+    "owner": "FRANKFORT GOVE LLC",
+    "amount_owed": "$1,159.85",
+    "parcel_id": "WARD 01 PARCEL 03988-001",
+    "year": "2023"
+  },
+  {
+    "address": "FRANKFORT ST",
+    "owner": "FRANKFORT GOVE LLC",
+    "amount_owed": "$2,485.31",
+    "parcel_id": "WARD 01 PARCEL 03988-002",
+    "year": "2023"
+  },
+  {
+    "address": "128 134 GOVE ST",
+    "owner": "FRANKFORT GOVE LLC",
+    "amount_owed": "$4,872.44",
+    "parcel_id": "WARD 01 PARCEL 04010-000",
+    "year": "2023"
+  },
+  {
+    "address": "120 GOVE ST",
+    "owner": "FRANKFORT GOVE LLC",
+    "amount_owed": "$13,848.72",
+    "parcel_id": "WARD 01 PARCEL 04015-000",
+    "year": "2023"
+  },
+  {
+    "address": "GENEVA ST",
+    "owner": "DELUCA JOEL",
+    "amount_owed": "$1,194.93",
+    "parcel_id": "WARD 01 PARCEL 04083-000",
+    "year": "2023"
+  },
+  {
+    "address": "28 GENEVA ST",
+    "owner": "DELUCA ANTHONY F ETAL\nBARBARA A DELUCA BE",
+    "amount_owed": "$10,360.30",
+    "parcel_id": "WARD 01 PARCEL 04084-000",
+    "year": "2023"
+  },
+  {
+    "address": "161 COTTAGE ST",
+    "owner": "161 COTTAGE STREET EB LLC",
+    "amount_owed": "$1,987.56",
+    "parcel_id": "WARD 01 PARCEL 04099-000",
+    "year": "2023"
+  },
+  {
+    "address": "298 MAVERICK ST",
+    "owner": "INTERIANO ALEXANDER E\nPINEDA JORGE",
+    "amount_owed": "$3,640.61",
+    "parcel_id": "WARD 01 PARCEL 04134-000",
+    "year": "2023"
+  },
+  {
+    "address": "156 PORTER ST Unit 249",
+    "owner": "TEPIC SLOBODAN\nMAJACIC-TEPIC MIRJANA",
+    "amount_owed": "$3,348.94",
+    "parcel_id": "WARD 01 PARCEL 04164-218",
+    "year": "2023"
+  },
+  {
+    "address": "93 COWPER ST",
+    "owner": "AMIRAULT CHARLES F\nAMIRAULT MICHAEL IF",
+    "amount_owed": "$8,578.56",
+    "parcel_id": "WARD 01 PARCEL 04290-001",
+    "year": "2023"
+  },
+  {
+    "address": "214 MARGINAL ST Unit 1",
+    "owner": "BOYCE JOHN",
+    "amount_owed": "$2,834.22",
+    "parcel_id": "WARD 01 PARCEL 04619-022",
+    "year": "2023"
+  },
+  {
+    "address": "214 MARGINAL ST Unit 3",
+    "owner": "BOYCE JOHN",
+    "amount_owed": "$2,287.20",
+    "parcel_id": "WARD 01 PARCEL 04619-026",
+    "year": "2023"
+  },
+  {
+    "address": "288 MARGINAL ST Unit PS-1",
+    "owner": "SHULTZ KRISTINA\nHILL RANDY S",
+    "amount_owed": "$116.19",
+    "parcel_id": "WARD 01 PARCEL 04671-013",
+    "year": "2023"
+  },
+  {
+    "address": "3 5 SEAVER ST Unit 3-3",
+    "owner": "PERSAC STEPHEN R",
+    "amount_owed": "$2,178.09",
+    "parcel_id": "WARD 01 PARCEL 04786-006",
+    "year": "2023"
+  },
+  {
+    "address": "EVERETT ST",
+    "owner": "ROSAS CARLOS R",
+    "amount_owed": "$808.73",
+    "parcel_id": "WARD 01 PARCEL 05074-000",
+    "year": "2023"
+  },
+  {
+    "address": "4 6 EVERETT PL Unit 6-2",
+    "owner": "MAHER BRIANNE IRENE",
+    "amount_owed": "$7,473.01",
+    "parcel_id": "WARD 01 PARCEL 05140-008",
+    "year": "2023"
+  },
+  {
+    "address": "ARAMON ST",
+    "owner": "TRINH PHUONG",
+    "amount_owed": "$234.10",
+    "parcel_id": "WARD 01 PARCEL 05167-000",
+    "year": "2023"
+  },
+  {
+    "address": "148 EVERETT ST",
+    "owner": "OBRIEN MARA A",
+    "amount_owed": "$7,587.03",
+    "parcel_id": "WARD 01 PARCEL 05216-000",
+    "year": "2023"
+  },
+  {
+    "address": "110 EVERETT ST",
+    "owner": "CRUZ FELIPE\nCRUZ LUZ ESTELLA",
+    "amount_owed": "$7,587.03",
+    "parcel_id": "WARD 01 PARCEL 05231-000",
+    "year": "2023"
+  },
+  {
+    "address": "91 93 ORLEANS ST",
+    "owner": "91-93 ORLEANS STREET LLC",
+    "amount_owed": "$8,216.32",
+    "parcel_id": "WARD 01 PARCEL 05308-000",
+    "year": "2023"
+  },
+  {
+    "address": "25 31 MAVERICK SQ Unit 10",
+    "owner": "QUISPE FELIMON TS\nTWENTY 5 MAVERICK SQ",
+    "amount_owed": "$4,319.96",
+    "parcel_id": "WARD 01 PARCEL 05368-002",
+    "year": "2023"
+  },
+  {
+    "address": "65 LEWIS ST Unit PS-111",
+    "owner": "BOGOSH MICHAEL\nCASTONGUAY AMANDA",
+    "amount_owed": "$649.89",
+    "parcel_id": "WARD 01 PARCEL 05400-217",
+    "year": "2023"
+  },
+  {
+    "address": "65 LEWIS ST Unit PS-199",
+    "owner": "TDH REALTY TRUST\nHAYWOOD THOMAS D",
+    "amount_owed": "$430.35",
+    "parcel_id": "WARD 01 PARCEL 05400-270",
+    "year": "2023"
+  },
+  {
+    "address": "65 LEWIS ST Unit PS-244",
+    "owner": "TDH REALTY TRUST\nHAYWOOD THOMAS D",
+    "amount_owed": "$430.35",
+    "parcel_id": "WARD 01 PARCEL 05400-315",
+    "year": "2023"
+  },
+  {
+    "address": "10 EVERETT ST Unit 305",
+    "owner": "CHEUNG KENT",
+    "amount_owed": "$1,998.24",
+    "parcel_id": "WARD 01 PARCEL 05400-327",
+    "year": "2023"
+  },
+  {
+    "address": "65 LEWIS ST Unit PS-246",
+    "owner": "SLIP65 CONDOMINIUM TRUST\nSLIP65 TRUSTEE LLC",
+    "amount_owed": "$849.49",
+    "parcel_id": "WARD 01 PARCEL 05400-327",
+    "year": "2023"
+  },
+  {
+    "address": "65 LEWIS ST Unit PS-247",
+    "owner": "SLIP65 CONDOMINIUM TRUST\nSLIP65 TRUSTEE LLC",
+    "amount_owed": "$849.49",
+    "parcel_id": "WARD 01 PARCEL 05400-328",
+    "year": "2023"
+  },
+  {
+    "address": "65 LEWIS ST Unit PS-249",
+    "owner": "SLIP65 CONDOMINIUM TRUST\nSLIP65 TRUSTEE LLC",
+    "amount_owed": "$849.49",
+    "parcel_id": "WARD 01 PARCEL 05400-330",
+    "year": "2023"
+  },
+  {
+    "address": "65 LEWIS ST Unit PS-250",
+    "owner": "SLIP65 CONDOMINIUM TRUST\nSLIP65 TRUSTEE LLC",
+    "amount_owed": "$849.49",
+    "parcel_id": "WARD 01 PARCEL 05400-331",
+    "year": "2023"
+  },
+  {
+    "address": "65 LEWIS ST Unit PS-251",
+    "owner": "SLIP65 CONDOMINIUM TRUST\nSLIP65 TRUSTEE LLC",
+    "amount_owed": "$849.49",
+    "parcel_id": "WARD 01 PARCEL 05400-332",
+    "year": "2023"
+  },
+  {
+    "address": "65 LEWIS ST Unit PS-252",
+    "owner": "SLIP65 CONDOMINIUM TRUST\nSLIP65 TRUSTEE LLC",
+    "amount_owed": "$849.49",
+    "parcel_id": "WARD 01 PARCEL 05400-333",
+    "year": "2023"
+  }
+]

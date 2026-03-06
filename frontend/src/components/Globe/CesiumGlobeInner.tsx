@@ -25,6 +25,7 @@ import {
   HeightReference,
   ClassificationType,
   CustomDataSource,
+  GeoJsonDataSource,
 } from "cesium";
 import { getPermitPins, type PermitPin } from "../../services/api";
 import { useStore, MARKET_NAMES } from "../../store/useStore";
@@ -178,6 +179,11 @@ const CesiumGlobeInner: React.FC = () => {
   const showProperties = useStore((s) => s.showProperties);
   const showFloodZones = useStore((s) => s.showFloodZones);
   const showParcels = useStore((s) => s.showParcels);
+  const showWetlands = useStore((s) => s.showWetlands);
+  const showConservation = useStore((s) => s.showConservation);
+  const showZoning = useStore((s) => s.showZoning);
+  const showMepa = useStore((s) => s.showMepa);
+  const showTaxDelinquency = useStore((s) => s.showTaxDelinquency);
   const selectedProperty = useStore((s) => s.selectedProperty);
   const selectProperty = useStore((s) => s.selectProperty);
   const cameraTarget = useStore((s) => s.cameraTarget);
@@ -192,6 +198,26 @@ const CesiumGlobeInner: React.FC = () => {
   const vpDataSourceRef = useRef<CustomDataSource | null>(null);
   const vpFetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const vpLastBboxRef = useRef<string>("");
+
+  const wetlandsDsRef = useRef<GeoJsonDataSource | null>(null);
+  const wetlandsFetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wetlandsLastBboxRef = useRef<string>("");
+
+  const conservationDsRef = useRef<GeoJsonDataSource | null>(null);
+  const conservationFetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const conservationLastBboxRef = useRef<string>("");
+
+  const zoningDsRef = useRef<GeoJsonDataSource | null>(null);
+  const zoningFetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const zoningLastBboxRef = useRef<string>("");
+
+  const mepaDsRef = useRef<GeoJsonDataSource | null>(null);
+  const mepaFetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mepaLastBboxRef = useRef<string>("");
+
+  const taxDsRef = useRef<GeoJsonDataSource | null>(null);
+  const taxFetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const taxLastBboxRef = useRef<string>("");
 
   // ── Create Viewer on mount ──────────────────────────────────────────────
   useEffect(() => {
@@ -597,7 +623,7 @@ const CesiumGlobeInner: React.FC = () => {
       }
     }
   }, [permits, propertySearchResults, selectedProperty,
-      showPermits, showProperties, ready]);
+    showPermits, showProperties, ready]);
 
   // ── FEMA Flood Zone WMS overlay ──────────────────────────────────────────
   useEffect(() => {
@@ -808,6 +834,410 @@ const CesiumGlobeInner: React.FC = () => {
       }
     };
   }, [showPermits, ready]);
+
+  // ── Wetlands GeoJSON Viewport Fetch ────────────────────────────────────
+  useEffect(() => {
+    if (!viewerRef.current || !ready) return;
+    const viewer = viewerRef.current;
+    if (viewer.isDestroyed()) return;
+
+    if (!showWetlands) {
+      if (wetlandsDsRef.current) {
+        viewer.dataSources.remove(wetlandsDsRef.current, true);
+        wetlandsDsRef.current = null;
+      }
+      return;
+    }
+
+    const fetchWetlands = async () => {
+      if (!viewerRef.current || viewerRef.current.isDestroyed()) return;
+      const v = viewerRef.current;
+      const camHeight = v.camera.positionCartographic.height;
+      if (camHeight > 50_000) {
+        if (wetlandsDsRef.current) {
+          viewer.dataSources.remove(wetlandsDsRef.current, true);
+          wetlandsDsRef.current = null;
+        }
+        wetlandsLastBboxRef.current = "";
+        return;
+      }
+
+      const rect = v.camera.computeViewRectangle();
+      if (!rect) return;
+      const west = CesiumMath.toDegrees(rect.west);
+      const south = CesiumMath.toDegrees(rect.south);
+      const east = CesiumMath.toDegrees(rect.east);
+      const north = CesiumMath.toDegrees(rect.north);
+
+      const bboxKey = `${west.toFixed(3)},${south.toFixed(3)},${east.toFixed(3)},${north.toFixed(3)}`;
+      if (bboxKey === wetlandsLastBboxRef.current) return;
+      wetlandsLastBboxRef.current = bboxKey;
+
+      try {
+        const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+        const url = `${API_BASE}/api/gis/wetlands?bbox=${west},${south},${east},${north}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Wetlands fetch failed");
+        const data = await res.json();
+
+        if (v.isDestroyed() || !showWetlands) return;
+
+        const newDs = new GeoJsonDataSource("wetlands");
+        await newDs.load(data, {
+          stroke: Color.fromCssColorString("#14b8a6"),
+          fill: Color.fromCssColorString("#14b8a6").withAlpha(0.35),
+          strokeWidth: 2,
+          clampToGround: true,
+        });
+
+        if (v.isDestroyed()) return;
+        viewer.dataSources.add(newDs);
+
+        if (wetlandsDsRef.current) {
+          viewer.dataSources.remove(wetlandsDsRef.current, true);
+        }
+        wetlandsDsRef.current = newDs;
+        console.log(`[CesiumGlobe] Wetlands rendered for bbox`);
+      } catch (err) {
+        console.warn("[CesiumGlobe] Wetlands sync failed:", err);
+      }
+    };
+
+    const onCameraChanged = () => {
+      if (wetlandsFetchTimerRef.current) clearTimeout(wetlandsFetchTimerRef.current);
+      wetlandsFetchTimerRef.current = setTimeout(fetchWetlands, 800);
+    };
+
+    viewer.camera.changed.addEventListener(onCameraChanged);
+    setTimeout(fetchWetlands, 500);
+
+    return () => {
+      if (wetlandsFetchTimerRef.current) clearTimeout(wetlandsFetchTimerRef.current);
+      if (!viewer.isDestroyed()) {
+        viewer.camera.changed.removeEventListener(onCameraChanged);
+      }
+    };
+  }, [showWetlands, ready]);
+
+  // ── Conservation GeoJSON Viewport Fetch ────────────────────────────────
+  useEffect(() => {
+    if (!viewerRef.current || !ready) return;
+    const viewer = viewerRef.current;
+    if (viewer.isDestroyed()) return;
+
+    if (!showConservation) {
+      if (conservationDsRef.current) {
+        viewer.dataSources.remove(conservationDsRef.current, true);
+        conservationDsRef.current = null;
+      }
+      return;
+    }
+
+    const fetchConservation = async () => {
+      if (!viewerRef.current || viewerRef.current.isDestroyed()) return;
+      const v = viewerRef.current;
+      const camHeight = v.camera.positionCartographic.height;
+      if (camHeight > 80_000) {
+        if (conservationDsRef.current) {
+          viewer.dataSources.remove(conservationDsRef.current, true);
+          conservationDsRef.current = null;
+        }
+        conservationLastBboxRef.current = "";
+        return;
+      }
+
+      const rect = v.camera.computeViewRectangle();
+      if (!rect) return;
+      const west = CesiumMath.toDegrees(rect.west);
+      const south = CesiumMath.toDegrees(rect.south);
+      const east = CesiumMath.toDegrees(rect.east);
+      const north = CesiumMath.toDegrees(rect.north);
+
+      const bboxKey = `${west.toFixed(3)},${south.toFixed(3)},${east.toFixed(3)},${north.toFixed(3)}`;
+      if (bboxKey === conservationLastBboxRef.current) return;
+      conservationLastBboxRef.current = bboxKey;
+
+      try {
+        const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+        const url = `${API_BASE}/api/gis/conservation?bbox=${west},${south},${east},${north}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Conservation fetch failed");
+        const data = await res.json();
+
+        if (v.isDestroyed() || !showConservation) return;
+
+        const newDs = new GeoJsonDataSource("conservation");
+        await newDs.load(data, {
+          stroke: Color.fromCssColorString("#10b981"),
+          fill: Color.fromCssColorString("#10b981").withAlpha(0.35),
+          strokeWidth: 2,
+          clampToGround: true,
+        });
+
+        if (v.isDestroyed()) return;
+        viewer.dataSources.add(newDs);
+
+        if (conservationDsRef.current) {
+          viewer.dataSources.remove(conservationDsRef.current, true);
+        }
+        conservationDsRef.current = newDs;
+        console.log(`[CesiumGlobe] Conservation rendered for bbox`);
+      } catch (err) {
+        console.warn("[CesiumGlobe] Conservation sync failed:", err);
+      }
+    };
+
+    const onCameraChanged = () => {
+      if (conservationFetchTimerRef.current) clearTimeout(conservationFetchTimerRef.current);
+      conservationFetchTimerRef.current = setTimeout(fetchConservation, 800);
+    };
+
+    viewer.camera.changed.addEventListener(onCameraChanged);
+    setTimeout(fetchConservation, 500);
+
+    return () => {
+      if (conservationFetchTimerRef.current) clearTimeout(conservationFetchTimerRef.current);
+      if (!viewer.isDestroyed()) {
+        viewer.camera.changed.removeEventListener(onCameraChanged);
+      }
+    };
+  }, [showConservation, ready]);
+
+  // ── Zoning (Boston) GeoJSON Viewport Fetch ─────────────────────────────
+  useEffect(() => {
+    if (!viewerRef.current || !ready) return;
+    const viewer = viewerRef.current;
+    if (viewer.isDestroyed()) return;
+
+    if (!showZoning) {
+      if (zoningDsRef.current) {
+        viewer.dataSources.remove(zoningDsRef.current, true);
+        zoningDsRef.current = null;
+      }
+      return;
+    }
+
+    const fetchZoning = async () => {
+      if (!viewerRef.current || viewerRef.current.isDestroyed()) return;
+      const v = viewerRef.current;
+      const camHeight = v.camera.positionCartographic.height;
+      if (camHeight > 30_000) {
+        if (zoningDsRef.current) {
+          viewer.dataSources.remove(zoningDsRef.current, true);
+          zoningDsRef.current = null;
+        }
+        zoningLastBboxRef.current = "";
+        return;
+      }
+
+      const rect = v.camera.computeViewRectangle();
+      if (!rect) return;
+      const west = CesiumMath.toDegrees(rect.west);
+      const south = CesiumMath.toDegrees(rect.south);
+      const east = CesiumMath.toDegrees(rect.east);
+      const north = CesiumMath.toDegrees(rect.north);
+
+      const bboxKey = `${west.toFixed(3)},${south.toFixed(3)},${east.toFixed(3)},${north.toFixed(3)}`;
+      if (bboxKey === zoningLastBboxRef.current) return;
+      zoningLastBboxRef.current = bboxKey;
+
+      try {
+        const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+        const url = `${API_BASE}/api/gis/zoning?bbox=${west},${south},${east},${north}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Zoning fetch failed");
+        const data = await res.json();
+
+        if (v.isDestroyed() || !showZoning) return;
+
+        const newDs = new GeoJsonDataSource("zoning");
+        await newDs.load(data, {
+          stroke: Color.fromCssColorString("#6366f1"), // Indigo
+          fill: Color.fromCssColorString("#6366f1").withAlpha(0.25),
+          strokeWidth: 2,
+          clampToGround: true,
+        });
+
+        if (v.isDestroyed()) return;
+
+        // Add District Labels if available
+        newDs.entities.values.forEach((entity) => {
+          if (entity.properties && entity.properties.DISTRICT) {
+            const distName = entity.properties.DISTRICT.getValue();
+            // Just an example tooltip/description
+            entity.description = `Zoning District: ${distName}` as any;
+          }
+        });
+
+        viewer.dataSources.add(newDs);
+
+        if (zoningDsRef.current) {
+          viewer.dataSources.remove(zoningDsRef.current, true);
+        }
+        zoningDsRef.current = newDs;
+        console.log(`[CesiumGlobe] Zoning rendered for bbox`);
+      } catch (err) {
+        console.warn("[CesiumGlobe] Zoning sync failed:", err);
+      }
+    };
+
+    const onCameraChanged = () => {
+      if (zoningFetchTimerRef.current) clearTimeout(zoningFetchTimerRef.current);
+      zoningFetchTimerRef.current = setTimeout(fetchZoning, 800);
+    };
+
+    viewer.camera.changed.addEventListener(onCameraChanged);
+    setTimeout(fetchZoning, 500);
+
+    return () => {
+      if (zoningFetchTimerRef.current) clearTimeout(zoningFetchTimerRef.current);
+      if (!viewer.isDestroyed()) {
+        viewer.camera.changed.removeEventListener(onCameraChanged);
+      }
+    };
+  }, [showZoning, ready]);
+
+  // ── MEPA Filings Viewport Fetch ──────────────────────────────────────────
+  useEffect(() => {
+    if (!viewerRef.current || !ready) return;
+    const viewer = viewerRef.current;
+    if (viewer.isDestroyed()) return;
+
+    if (!showMepa) {
+      if (mepaDsRef.current) {
+        viewer.dataSources.remove(mepaDsRef.current, true);
+        mepaDsRef.current = null;
+      }
+      return;
+    }
+
+    const fetchMepa = async () => {
+      if (!viewerRef.current || viewerRef.current.isDestroyed()) return;
+
+      try {
+        const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+        const url = `${API_BASE}/api/gis/mepa`; // Returns top 50
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("MEPA fetch failed");
+        const data = await res.json();
+
+        if (viewerRef.current.isDestroyed() || !showMepa) return;
+
+        const newDs = new GeoJsonDataSource("mepa");
+        await newDs.load(data, {
+          stroke: Color.fromCssColorString("#f97316"), // Orange-500
+          fill: Color.fromCssColorString("#f97316"),
+          markerColor: Color.fromCssColorString("#f97316"),
+          markerSymbol: "m",
+          strokeWidth: 2,
+          clampToGround: true,
+        });
+
+        if (viewerRef.current.isDestroyed()) return;
+
+        newDs.entities.values.forEach((entity) => {
+          if (entity.properties && entity.properties.title) {
+            entity.description = `Project: ${entity.properties.title.getValue()}\\nStatus: ${entity.properties.status.getValue()}\\nAddress: ${entity.properties.address.getValue()}` as any;
+          }
+        });
+
+        viewer.dataSources.add(newDs);
+
+        if (mepaDsRef.current) {
+          viewer.dataSources.remove(mepaDsRef.current, true);
+        }
+        mepaDsRef.current = newDs;
+      } catch (err) {
+        console.warn("[CesiumGlobe] MEPA sync failed:", err);
+      }
+    };
+
+    const onCameraChanged = () => {
+      if (mepaFetchTimerRef.current) clearTimeout(mepaFetchTimerRef.current);
+      mepaFetchTimerRef.current = setTimeout(fetchMepa, 2000);
+    };
+
+    viewer.camera.changed.addEventListener(onCameraChanged);
+    setTimeout(fetchMepa, 500);
+
+    return () => {
+      if (mepaFetchTimerRef.current) clearTimeout(mepaFetchTimerRef.current);
+      if (!viewer.isDestroyed()) {
+        viewer.camera.changed.removeEventListener(onCameraChanged);
+      }
+    };
+  }, [showMepa, ready]);
+
+  // ── Tax Delinquency Viewport Fetch ───────────────────────────────────────
+  useEffect(() => {
+    if (!viewerRef.current || !ready) return;
+    const viewer = viewerRef.current;
+    if (viewer.isDestroyed()) return;
+
+    if (!showTaxDelinquency) {
+      if (taxDsRef.current) {
+        viewer.dataSources.remove(taxDsRef.current, true);
+        taxDsRef.current = null;
+      }
+      return;
+    }
+
+    const fetchTax = async () => {
+      if (!viewerRef.current || viewerRef.current.isDestroyed()) return;
+
+      try {
+        const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+        const url = `${API_BASE}/api/gis/tax-delinquency`; // Returns top 100
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Tax fetch failed");
+        const data = await res.json();
+
+        if (viewerRef.current.isDestroyed() || !showTaxDelinquency) return;
+
+        const newDs = new GeoJsonDataSource("tax");
+        await newDs.load(data, {
+          stroke: Color.fromCssColorString("#ef4444"), // Red-500
+          fill: Color.fromCssColorString("#ef4444"),
+          markerColor: Color.fromCssColorString("#ef4444"),
+          markerSymbol: "t+",
+          strokeWidth: 2,
+          clampToGround: true,
+        });
+
+        if (viewerRef.current.isDestroyed()) return;
+
+        newDs.entities.values.forEach((entity) => {
+          if (entity.properties && entity.properties.address) {
+            entity.description = `Tax Delinquent Property\\nAddress: ${entity.properties.address.getValue()}` as any;
+          }
+        });
+
+        viewer.dataSources.add(newDs);
+
+        if (taxDsRef.current) {
+          viewer.dataSources.remove(taxDsRef.current, true);
+        }
+        taxDsRef.current = newDs;
+      } catch (err) {
+        console.warn("[CesiumGlobe] Tax sync failed:", err);
+      }
+    };
+
+    const onCameraChanged = () => {
+      if (taxFetchTimerRef.current) clearTimeout(taxFetchTimerRef.current);
+      taxFetchTimerRef.current = setTimeout(fetchTax, 2000);
+    };
+
+    viewer.camera.changed.addEventListener(onCameraChanged);
+    setTimeout(fetchTax, 500);
+
+    return () => {
+      if (taxFetchTimerRef.current) clearTimeout(taxFetchTimerRef.current);
+      if (!viewer.isDestroyed()) {
+        viewer.camera.changed.removeEventListener(onCameraChanged);
+      }
+    };
+  }, [showTaxDelinquency, ready]);
 
   // ── CSS view mode filter ────────────────────────────────────────────────
   const viewerFilter: React.CSSProperties = (() => {

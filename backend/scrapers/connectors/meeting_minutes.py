@@ -132,7 +132,7 @@ class MeetingMinutesScraper:
         pages = await self.firecrawl.crawl(
             board.minutes_url,
             max_pages=self.max_pages_per_board,
-            include_paths=["*minutes*", "*agenda*", "*meeting*"],
+            include_paths=[".*minutes.*", ".*agenda.*", ".*meeting.*"],
         )
 
         if not pages:

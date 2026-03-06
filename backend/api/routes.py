@@ -86,6 +86,38 @@ async def get_parcels(
         raise HTTPException(status_code=400, detail="Provide lat/lon or town+address")
 
 
+# ─── Wetlands Endpoint ────────────────────────────────────────────────────────
+
+@router.get("/gis/wetlands")
+async def get_wetlands(
+    bbox: str = Query(..., description="Bounding box 'xmin,ymin,xmax,ymax'")
+):
+    """Get freshwater wetlands polygons within a bounding box."""
+    from scrapers.connectors.massgis_wetlands import MassGISWetlandsClient
+    
+    client = MassGISWetlandsClient()
+    result = await client.get_wetlands_in_bbox(bbox)
+    if not result:
+        raise HTTPException(status_code=500, detail="Failed to fetch wetlands data from MassGIS")
+    return result
+
+
+# ─── Conservation/Open Space Endpoint ───────────────────────────────────────
+
+@router.get("/gis/conservation")
+async def get_conservation(
+    bbox: str = Query(..., description="Bounding box 'xmin,ymin,xmax,ymax'")
+):
+    """Get conservation restrictions and open space polygons within a bounding box."""
+    from scrapers.connectors.massgis_openspace import MassGISOpenSpaceClient
+    
+    client = MassGISOpenSpaceClient()
+    result = await client.get_openspace_in_bbox(bbox)
+    if not result:
+        raise HTTPException(status_code=500, detail="Failed to fetch conservation data from MassGIS")
+    return result
+
+
 # ─── Zoning Endpoint ────────────────────────────────────────────────────────
 
 @router.get("/zoning")
@@ -97,6 +129,116 @@ async def get_zoning(
     from scrapers.connectors.zoning_atlas import get_zoning
     result = await get_zoning(lat, lon)
     return result
+
+
+# ─── MEPA Environmental Filings Endpoint ───────────────────────────────────────
+
+@router.get("/gis/mepa")
+async def get_mepa_filings():
+    """Get recent MEPA environmental filings as GeoJSON points."""
+    supabase = _get("supabase_client")
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase not connected")
+
+    try:
+        # Fetch the latest 100 MEPA records
+        res = await supabase.fetch(
+            table="municipal_documents",
+            select="id,title,content_text,source_url,meeting_date,mentions",
+            filters={"doc_type": "eq.MEPA Environmental Monitor"},
+            order="meeting_date.desc",
+            limit=100
+        )
+        if not res:
+            return {"type": "FeatureCollection", "features": []}
+
+        # Dynamically geocode if needed
+        from scrapers.connectors.nominatim_geocoder import geocode
+        features = []
+        for doc in res:
+            mentions = doc.get("mentions") or {}
+            addr = mentions.get("address")
+            if not addr:
+                continue
+            
+            geo = await geocode(addr + ", MA")
+            if not geo.get("lat") or not geo.get("lon"):
+                continue
+
+            features.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [geo["lon"], geo["lat"]]
+                },
+                "properties": {
+                    "id": doc.get("id"),
+                    "title": doc.get("title"),
+                    "status": mentions.get("status", "Pending"),
+                    "address": addr,
+                    "url": doc.get("source_url"),
+                    "content_text": doc.get("content_text")
+                }
+            })
+        
+        return {"type": "FeatureCollection", "features": features}
+    except Exception as e:
+        logger.error(f"Error fetching MEPA data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─── Tax Delinquency Endpoint ────────────────────────────────────────────────
+
+@router.get("/gis/tax-delinquency")
+async def get_tax_delinquency():
+    """Get recent tax delinquent properties as GeoJSON points."""
+    supabase = _get("supabase_client")
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase not connected")
+
+    try:
+        res = await supabase.fetch(
+            table="municipal_documents",
+            select="id,title,content_text,source_url,meeting_date,mentions",
+            filters={"doc_type": "eq.Tax Collector"},
+            order="meeting_date.desc",
+            limit=100
+        )
+        if not res:
+            return {"type": "FeatureCollection", "features": []}
+
+        from scrapers.connectors.nominatim_geocoder import geocode
+        features = []
+        for doc in res:
+            mentions = doc.get("mentions") or {}
+            addr = mentions.get("address")
+            if not addr:
+                continue
+            
+            geo = await geocode(addr + ", MA")
+            if not geo.get("lat") or not geo.get("lon"):
+                continue
+
+            features.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [geo["lon"], geo["lat"]]
+                },
+                "properties": {
+                    "id": doc.get("id"),
+                    "title": doc.get("title"),
+                    "status": mentions.get("status", "Delinquent"),
+                    "address": addr,
+                    "url": doc.get("source_url"),
+                    "content_text": doc.get("content_text")
+                }
+            })
+        
+        return {"type": "FeatureCollection", "features": features}
+    except Exception as e:
+        logger.error(f"Error fetching Tax Delinquency data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ─── Land Records Endpoint ──────────────────────────────────────────────────

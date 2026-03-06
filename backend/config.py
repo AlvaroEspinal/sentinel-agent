@@ -89,6 +89,11 @@ GOOGLE_GEOCODING_API_KEY = os.getenv("GOOGLE_GEOCODING_API_KEY", "")
 # Firecrawl (web scraping)
 FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY", "")
 
+# OpenRouter (multi-model LLM gateway)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_DEFAULT_MODEL = os.getenv("OPENROUTER_DEFAULT_MODEL", "google/gemini-2.0-flash-001")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "anthropic")  # "anthropic" | "openrouter"
+
 # Feature flags
 ENABLE_GEOSPATIAL_FEEDS = os.getenv("ENABLE_GEOSPATIAL_FEEDS", "false").lower() == "true"
 

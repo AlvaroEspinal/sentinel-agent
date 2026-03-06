@@ -1,0 +1,4 @@
+[     623ms] [ERROR] The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy. @ https://www.wayland.ma.us/minutes-and-agendas:0
+[     659ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://s7.addthis.com/static/btn/sm-share-en.gif:0
+[     698ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://s7.addthis.com/js/300/addthis_widget.js?_=1772717902983:0
+[     698ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://s7.addthis.com/js/300/addthis_widget.js?_=1772717902984:0

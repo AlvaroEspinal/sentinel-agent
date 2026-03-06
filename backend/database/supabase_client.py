@@ -230,6 +230,8 @@ class SupabaseRestClient:
         table: str,
         data: dict | list[dict],
         upsert: bool = False,
+        minimal: bool = False,
+        on_conflict: Optional[str] = None,
     ) -> list[dict]:
         """
         Insert one or more rows into a table.
@@ -237,9 +239,12 @@ class SupabaseRestClient:
         Uses PostgREST POST method.
 
         Args:
-            table:   Table name
-            data:    Dict (single row) or list of dicts (batch insert)
-            upsert:  If True, use Prefer: resolution=merge-duplicates
+            table:       Table name
+            data:        Dict (single row) or list of dicts (batch insert)
+            upsert:      If True, use Prefer: resolution=merge-duplicates
+            minimal:     If True, use return=minimal (no response body, faster)
+            on_conflict: Comma-separated columns for upsert conflict target
+                         e.g. "town_id,permit_number"
 
         Returns:
             List of inserted row dicts (if Prefer: return=representation)
@@ -247,21 +252,41 @@ class SupabaseRestClient:
         if not self._client:
             raise RuntimeError("Supabase client not connected — call connect() first")
 
-        prefer = "return=representation"
+        prefer = "return=minimal" if minimal else "return=representation"
         if upsert:
             prefer += ",resolution=merge-duplicates"
 
         headers = self._headers({"Prefer": prefer})
 
+        # Auto-chunk large batches to avoid payload limits
+        if isinstance(data, list) and len(data) > 500:
+            results = []
+            for i in range(0, len(data), 500):
+                chunk = data[i:i + 500]
+                chunk_result = await self.insert(
+                    table, chunk, upsert=upsert, minimal=minimal,
+                    on_conflict=on_conflict,
+                )
+                results.extend(chunk_result)
+            return results
+
+        url = f"{self._rest_url}/{table}"
+        if on_conflict:
+            url += f"?on_conflict={on_conflict}"
+
         resp = await self._client.post(
-            f"{self._rest_url}/{table}",
+            url,
             headers=headers,
             json=data,
+            timeout=60.0,
         )
         if resp.status_code >= 400:
             raise RuntimeError(
                 f"Insert failed: status={resp.status_code} body={resp.text[:300]}"
             )
+
+        if minimal:
+            return []
 
         try:
             return resp.json()

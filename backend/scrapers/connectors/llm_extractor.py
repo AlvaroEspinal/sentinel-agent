@@ -1,5 +1,9 @@
 """
-LLM Document Extractor — Claude-powered structured extraction.
+LLM Document Extractor — Multi-provider structured extraction.
+
+Supports:
+  - Anthropic Claude API (direct)
+  - OpenRouter (OpenAI-compatible gateway → 100+ models)
 
 Takes raw text from meeting minutes, zoning documents, and other
 municipal records and extracts structured intelligence:
@@ -24,31 +28,124 @@ try:
 except ImportError:
     anthropic = None  # type: ignore
 
+try:
+    import openai
+except ImportError:
+    openai = None  # type: ignore
+
 
 class LLMExtractor:
-    """Extract structured data from municipal documents using Claude."""
+    """Extract structured data from municipal documents using LLMs.
+
+    Supports two providers:
+      - "anthropic" → Anthropic Claude API (default)
+      - "openrouter" → OpenRouter gateway (OpenAI-compatible, 100+ models)
+
+    Usage:
+        # Use Anthropic Claude (default)
+        llm = LLMExtractor()
+
+        # Use OpenRouter with Gemini Flash
+        llm = LLMExtractor(provider="openrouter", model="google/gemini-2.0-flash-001")
+
+        # Use OpenRouter with DeepSeek
+        llm = LLMExtractor(provider="openrouter", model="deepseek/deepseek-chat-v3-0324")
+    """
 
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "claude-sonnet-4-20250514",
+        model: Optional[str] = None,
         max_tokens: int = 2000,
+        provider: Optional[str] = None,
     ):
-        from config import ANTHROPIC_API_KEY
-        self.api_key = api_key or ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY", "")
-        self.model = model
+        from config import (
+            ANTHROPIC_API_KEY,
+            OPENROUTER_API_KEY,
+            OPENROUTER_DEFAULT_MODEL,
+            LLM_PROVIDER,
+        )
+
+        # Determine provider
+        self.provider = (provider or LLM_PROVIDER or "anthropic").lower()
+
+        if self.provider == "openrouter":
+            self.api_key = api_key or OPENROUTER_API_KEY or os.getenv("OPENROUTER_API_KEY", "")
+            self.model = model or OPENROUTER_DEFAULT_MODEL or "google/gemini-2.0-flash-001"
+            if not self.api_key:
+                logger.warning("OPENROUTER_API_KEY not set — LLM extraction will fail")
+        else:
+            # Default to Anthropic
+            self.provider = "anthropic"
+            self.api_key = api_key or ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY", "")
+            self.model = model or "claude-sonnet-4-20250514"
+            if not self.api_key:
+                logger.warning("ANTHROPIC_API_KEY not set — LLM extraction will fail")
+
         self.max_tokens = max_tokens
-        self._client: Optional[Any] = None
+        self._anthropic_client: Optional[Any] = None
+        self._openrouter_client: Optional[Any] = None
 
-        if not self.api_key:
-            logger.warning("ANTHROPIC_API_KEY not set — LLM extraction will fail")
+        logger.info("LLMExtractor initialized: provider=%s, model=%s", self.provider, self.model)
 
-    def _ensure_client(self) -> Any:
-        if self._client is None:
+    # ── Client Management ─────────────────────────────────────────────────
+
+    def _ensure_anthropic_client(self) -> Any:
+        if self._anthropic_client is None:
             if anthropic is None:
                 raise RuntimeError("anthropic package required: pip install anthropic")
-            self._client = anthropic.Anthropic(api_key=self.api_key)
-        return self._client
+            self._anthropic_client = anthropic.Anthropic(api_key=self.api_key)
+        return self._anthropic_client
+
+    def _ensure_openrouter_client(self) -> Any:
+        if self._openrouter_client is None:
+            if openai is None:
+                raise RuntimeError("openai package required: pip install openai")
+            self._openrouter_client = openai.OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=self.api_key,
+            )
+        return self._openrouter_client
+
+    # ── Unified LLM Call ──────────────────────────────────────────────────
+
+    def _call_llm(self, prompt: str, max_tokens: Optional[int] = None) -> str:
+        """Send a prompt to the configured LLM provider and return raw text.
+
+        Routes to Anthropic or OpenRouter based on self.provider.
+        Returns the model's text response.
+        """
+        tokens = max_tokens or self.max_tokens
+
+        if self.provider == "openrouter":
+            client = self._ensure_openrouter_client()
+            response = client.chat.completions.create(
+                model=self.model,
+                max_tokens=tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return (response.choices[0].message.content or "").strip()
+        else:
+            # Anthropic
+            client = self._ensure_anthropic_client()
+            response = client.messages.create(
+                model=self.model,
+                max_tokens=tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return response.content[0].text.strip()
+
+    # ── JSON Parsing Helper ───────────────────────────────────────────────
+
+    @staticmethod
+    def _parse_json_response(text: str) -> Dict[str, Any]:
+        """Parse JSON from LLM response, handling markdown code blocks."""
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+            text = text.strip()
+        return json.loads(text)
 
     # ── Meeting Minutes Extraction ────────────────────────────────────────
 
@@ -82,8 +179,6 @@ class LLMExtractor:
                 ]
             }
         """
-        client = self._ensure_client()
-
         # Truncate long documents
         if len(text) > 20000:
             text = text[:20000] + "\n\n[... document truncated ...]"
@@ -101,6 +196,8 @@ Extract the following structured information from the text below. Return valid J
       "parcel_id": "parcel ID if mentioned (null if not)",
       "topic": "what was discussed about this property",
       "decision": "approved/denied/continued/tabled/withdrawn (null if no decision)",
+      "is_subdivision": "boolean (true if this discussion involves a subdivision of land)",
+      "is_site_plan": "boolean (true if this involves a site plan approval or review)",
       "context_snippet": "brief relevant quote or paraphrase (max 100 chars)"
     }}
   ],
@@ -132,22 +229,8 @@ Meeting minutes text:
 Return ONLY valid JSON, no other text."""
 
         try:
-            response = client.messages.create(
-                model=self.model,
-                max_tokens=self.max_tokens,
-                messages=[{"role": "user", "content": prompt}],
-            )
-
-            result_text = response.content[0].text.strip()
-
-            # Try to parse JSON — handle potential markdown code blocks
-            if result_text.startswith("```"):
-                result_text = result_text.split("```")[1]
-                if result_text.startswith("json"):
-                    result_text = result_text[4:]
-                result_text = result_text.strip()
-
-            parsed = json.loads(result_text)
+            result_text = self._call_llm(prompt)
+            parsed = self._parse_json_response(result_text)
             return {
                 "summary": parsed.get("summary", ""),
                 "keywords": parsed.get("keywords", []),
@@ -181,8 +264,6 @@ Return ONLY valid JSON, no other text."""
         Returns:
             Dict with summary, keywords, and type-specific fields
         """
-        client = self._ensure_client()
-
         if len(text) > 15000:
             text = text[:15000] + "\n\n[... document truncated ...]"
 
@@ -206,21 +287,8 @@ Document text:
 Return ONLY valid JSON."""
 
         try:
-            response = client.messages.create(
-                model=self.model,
-                max_tokens=self.max_tokens,
-                messages=[{"role": "user", "content": prompt}],
-            )
-
-            result_text = response.content[0].text.strip()
-
-            if result_text.startswith("```"):
-                result_text = result_text.split("```")[1]
-                if result_text.startswith("json"):
-                    result_text = result_text[4:]
-                result_text = result_text.strip()
-
-            return json.loads(result_text)
+            result_text = self._call_llm(prompt)
+            return self._parse_json_response(result_text)
 
         except Exception as exc:
             logger.error("[LLM] Document extraction failed: %s", exc)
@@ -240,8 +308,6 @@ Return ONLY valid JSON."""
 
         Returns insight about why this permit matters for property values.
         """
-        client = self._ensure_client()
-
         prompt = f"""As a real estate analyst, briefly analyze this building permit's significance:
 
 Town: {town_name}, MA
@@ -260,20 +326,8 @@ Return JSON:
 Return ONLY valid JSON."""
 
         try:
-            response = client.messages.create(
-                model=self.model,
-                max_tokens=500,
-                messages=[{"role": "user", "content": prompt}],
-            )
-
-            result_text = response.content[0].text.strip()
-            if result_text.startswith("```"):
-                result_text = result_text.split("```")[1]
-                if result_text.startswith("json"):
-                    result_text = result_text[4:]
-                result_text = result_text.strip()
-
-            return json.loads(result_text)
+            result_text = self._call_llm(prompt, max_tokens=500)
+            return self._parse_json_response(result_text)
 
         except Exception as exc:
             logger.warning("[LLM] Permit analysis failed: %s", exc)
