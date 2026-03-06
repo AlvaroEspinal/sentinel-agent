@@ -349,3 +349,44 @@ backend/
     ├── newton.json       (empty)
     └── wayland.json      (empty)
 ```
+
+# Additional Data Pipelines Handoff (MEPA, Tax Delinquency, Zoning, CIP)
+
+> Added: 2026-03-05
+> Covers: MEPA Environmental Monitor, Tax Delinquencies, Zoning Bylaws
+
+## 1. What We Have: New Data Sources
+
+### MEPA Environmental Filings (in Supabase `municipal_documents`)
+- **~5,314+ filings** historically scraped across Massachusetts
+- Indexed by `doc_type: 'MEPA Environmental Monitor'`
+- Geocoded on-the-fly via Nominatim on frontend
+- **Status**: Live, successfully inserted.
+
+### Tax Delinquencies / Tax Title (in Supabase `municipal_documents`)
+- **0 records currently** inserted because they require manual PDF/HTML URLs to be fed for each town.
+- Indexed by `doc_type: 'Tax Collector'`
+- **Status**: Scraper logic complete and tested (`tax_delinquency_scraper.py`).
+
+### Zoning Bylaws (Local/Supabase hybrid)
+- **Status**: Connector built (`zoning_bylaw_scraper.py`), successfully uses Firecrawl and OpenRouter (Gemini) to parse Zoning Table of Uses into structured JSON. Currently tested on Lexington. Will need a loop over towns.
+
+## 2. New Scrapers Architecture
+
+| Scraper File | Target | Approach | Needs API Key |
+|--------------|--------|----------|---------------|
+| `mepa_scraper.py` | MEPA Environmental Monitor | AWS API Gateway JSON endpoint | No |
+| `tax_delinquency_scraper.py` | Town Tax Titles | `pdfplumber` + Firecrawl HTML + OpenRouter LLM extraction | Yes (OpenRouter/Anthropic) |
+| `zoning_bylaw_scraper.py` | eCode360 / Town Bylaws | Firecrawl HTML crawler + OpenRouter LLM structure extraction | Yes (Firecrawl, OpenRouter) |
+| `cip_extractor.py` | Capital Improvement Plans | LLM-powered PDF extraction for infrastructure projects | Yes (OpenRouter/Anthropic) |
+
+## 3. Ingestion Scripts & Cron Jobs
+
+- `backend/scripts/ingest_all_mepa.py`: Background job that runs through to year 2000, paging 500 records at a time and inserting into Supabase while skipping duplicates by `source_url`.
+- `backend/scripts/ingest_real_estate_intel.py`: Designed to run regularly (e.g., weekly) to fetch recent MEPA filings and refresh Tax Delinquency links mapping to target municipalities.
+
+## 4. What is Left to Do
+
+1. **Tax Delinquency**: Map the correct URL endpoints (PDFs, HTML sites) for the remaining pilot towns inside `ingest_real_estate_intel.py` (e.g. searching "Town of Weston Tax Title PDF") to seed actual Delinquent Property lists.
+2. **Zoning Bylaws**: Iterate `zoning_bylaw_scraper.py` across all towns to pull all Dimensional Requirements and store them in the database for rendering the use-rules on the Cesium GIS polygons.
+3. **ATTOM API Integration**: `attom_client.py` is written but needs a commercial API key to run the test script and verify Deeds/Sales/Mortgage extraction.
