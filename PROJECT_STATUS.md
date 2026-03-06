@@ -1,7 +1,10 @@
 # Parcl Intelligence — Project Status
 
-**Last Updated:** March 4, 2026 (Session 8)
-**Session Summary:** Built PermitEyes + SimpliCITY permit scrapers for non-VPC towns, bringing total permits to 46,835 across 9 Massachusetts towns.
+**Last Updated:** March 5, 2026 (Session 9/10)
+**Session Summary:** 
+1. Built `MEPAScraper` to query MA Environmental Monitor API via AWS Gateway (with BeautifulSoup fallback) for real estate filings.
+2. Fixed broken URLs in `MunicipalOverlayClient` for Boston Neighborhood Design Overlays and MHC Historic Inventory. 
+3. Wrote ingestion scripts `ingest_overlays.py` and `ingest_all_mepa.py` to push GeoJSON overlays and MEPA records into the Supabase database (`municipal_documents` table).
 
 ---
 
@@ -201,12 +204,16 @@ useStore.ts (Zustand)
 
 ## What's Left To Do — Prioritized Roadmap
 
-### Priority 1: Test SimpliCITY Scraping
+### Priority 1: Integrate New Scrapers to Frontend
+- Pull `overlay_district` records from `municipal_documents` to render new layers on the CesiumJS globe (e.g. coloring historic districts or flood zones).
+- Create a new UI tab for MEPA filings querying `municipal_documents` where `doc_type = 'MEPA Environmental Monitor'`.
+
+### Priority 2: Test SimpliCITY Scraping
 - Restart backend, trigger Weston + Sherborn scrapes
 - Verify data quality (permit numbers, addresses, dates)
 - Expected: ~16,384 new permits
 
-### Priority 2: Accela Connector for Brookline
+### Priority 3: Accela Connector for Brookline
 - Brookline uses Accela Citizen Access (ASP.NET WebForms with ViewState)
 - Hardest portal to scrape — requires session management, CSRF tokens, postback simulation
 - ~21 permits currently in DB (from earlier Firecrawl attempt)
