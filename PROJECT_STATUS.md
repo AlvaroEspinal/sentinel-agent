@@ -76,6 +76,26 @@
 - Weston: `permit_portal_type="simplicity"`
 - Sherborn: `permit_portal_type="simplicity"`
 
+### 22. Municipal Overlays ArcGIS Connector (Session 9)
+**Problem:** Need specialized overlay district data (Historical, Coastal Flood, Planned Development Areas, Institutional Master Plans) for real estate analysis, but these exist isolated on individual town ArcGIS servers, not on MassGIS.
+**Connector:** `backend/scrapers/connectors/municipal_overlays.py` (NEW)
+**How It Works:**
+1. Standalone client `MunicipalOverlayClient` that takes *any* ArcGIS REST `/query` endpoint.
+2. Performs `esriGeometryEnvelope` (bounding box) and point queries, returning raw `FeatureCollection` GeoJSON.
+3. Maps known overlay endpoints via `KNOWN_LAYERS` dictionary.
+**Enrichment:**
+- Integrated `LLMExtractor` via **OpenRouter** (`google/gemini-2.0-flash-001`).
+- The script passes abbreviated GeoJSON properties to the LLM to get a 3-sentence plain English summary of what the overlay means for real estate development (risks, opportunities).
+**What has been scraped (data_cache/):**
+- Boston Planned Development Areas (PDAs): 24 features
+- Boston Zoning Districts (Base): 74 features
+- Boston Coastal Flood Resilience Overlay: 1 feature
+- Boston Institutional Master Plan Overlay: 3 features
+**What is left:**
+- Cambridge Zoning MapServer returned an error (needs MapServer client approach instead of FeatureServer query).
+- Need to push the GeoJSON overlays into the Supabase database (requires new PostGIS/GeoJSON table schema).
+- Integrate the returned GeoJSON multi-polygons as new layers in the CesiumJS frontend.
+
 ---
 
 ## Current Permit Database State
