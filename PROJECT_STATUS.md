@@ -96,6 +96,20 @@
 - Need to push the GeoJSON overlays into the Supabase database (requires new PostGIS/GeoJSON table schema).
 - Integrate the returned GeoJSON multi-polygons as new layers in the CesiumJS frontend.
 
+### 23. Tax Delinquency Scraper (Session 10)
+**Problem:** Need to parse non-standardized tabular PDF documents published by MA municipal Treasurer websites detailing delinquent tax properties (Tax Title lists).
+**Solution:** Built a standalone scraper (`TaxDelinquencyScraper`) utilizing `pdfplumber` to extract tables and text, and an advanced fallback to **OpenRouter** / Anthropic LLM parsing for unstructured data to yield clean JSON.
+**How It Works:**
+1. **Multi-Agent Orchestration** via `backend/scripts/scrape_all_tax_delinquencies.py`
+2. **OSINT Agent:** Uses `FirecrawlClient` to search Google programmatically and discover each town's actual latest Tax Title PDF links.
+3. **Extraction Agent:** Downloads the PDF (using `httpx` with a `Playwright` headless Chromium fallback to bypass aggressive municipal Cloudflare/anti-bot protections), extracts the text, and routes it to an LLM for structured output (`Address`, `Owner`, `Amount Owed`).
+**What has been scraped (pushed to Supabase):**
+- 71 detailed property records of delinquent tax accounts extracted and ingested into the `municipal_documents` table.
+**What is left:**
+- Run the OSINT agent against the remaining 40+ targeted affluent towns to build the full dataset.
+- Enhance the search queries for towns that bury their PDFs inside CivicPlus proprietary portals.
+- Integrate these delinquent properties into the frontend Cesium Map as high-priority red warning markers for investors.
+
 ---
 
 ## Current Permit Database State
