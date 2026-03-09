@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import SUPABASE_URL, SUPABASE_SERVICE_KEY
 from database.supabase_client import SupabaseRestClient
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "scraped" / "permits"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data_cache" / "permits"
 
 # Fields that the permits table accepts
 VALID_FIELDS = {
@@ -36,6 +36,65 @@ VALID_FIELDS = {
     "filed_date", "issued_date", "completed_date", "source_system",
     "source_id", "raw_data", "created_at", "updated_at", "property_id",
 }
+
+
+def normalize_record(raw: dict, town_id: str) -> dict:
+    """Map scraped permit fields to the permits table schema."""
+    # Field mapping: scraped_name -> db_name
+    r = {}
+    r["town_id"] = raw.get("town_id") or town_id
+    r["permit_number"] = (
+        raw.get("permit_number")
+        or raw.get("record_number")
+        or raw.get("source_id")
+        or ""
+    )
+    r["permit_type"] = raw.get("permit_type") or raw.get("record_type") or raw.get("app_type") or ""
+    r["permit_status"] = raw.get("permit_status") or raw.get("status") or ""
+    r["address"] = raw.get("address") or ""
+    r["description"] = raw.get("description") or ""
+    r["applicant_name"] = raw.get("applicant_name") or raw.get("applicant") or ""
+    r["contractor_name"] = raw.get("contractor_name") or raw.get("contractor") or ""
+    ev = raw.get("estimated_value") or raw.get("permit_value")
+    if isinstance(ev, (int, float)):
+        r["estimated_value"] = ev
+    elif isinstance(ev, str):
+        # Strip $ and commas, convert to float
+        cleaned_val = ev.replace("$", "").replace(",", "").strip()
+        try:
+            r["estimated_value"] = float(cleaned_val) if cleaned_val else None
+        except ValueError:
+            r["estimated_value"] = None
+    else:
+        r["estimated_value"] = None
+    r["source_system"] = raw.get("source_system") or raw.get("source") or ""
+
+    # Date mapping — parse MM/DD/YYYY to YYYY-MM-DD
+    r["filed_date"] = _parse_date(raw.get("filed_date") or raw.get("app_date") or raw.get("date_created"))
+    r["issued_date"] = _parse_date(raw.get("issued_date") or raw.get("issue_date"))
+    r["completed_date"] = _parse_date(raw.get("completed_date"))
+
+    return r
+
+
+def _parse_date(val: str | None) -> str | None:
+    """Normalize date strings to YYYY-MM-DD. Returns None for empty/invalid."""
+    if not val or not isinstance(val, str) or not val.strip():
+        return None
+    val = val.strip()
+    # Already ISO format
+    if len(val) >= 10 and val[4] == "-":
+        return val[:10]
+    # MM/DD/YYYY
+    if "/" in val:
+        parts = val.split("/")
+        if len(parts) == 3:
+            try:
+                m, d, y = int(parts[0]), int(parts[1]), int(parts[2])
+                return f"{y:04d}-{m:02d}-{d:02d}"
+            except ValueError:
+                return None
+    return None
 
 
 def clean_record(record: dict) -> dict:
@@ -64,9 +123,20 @@ async def ingest_town(
     batch_size: int = 500,
 ) -> dict:
     """Ingest a single town's permit JSON file into Supabase."""
-    town_id = filepath.stem
+    town_id = filepath.stem.replace("_permits", "")
     with open(filepath) as f:
-        records = json.load(f)
+        data = json.load(f)
+
+    # Handle wrapper dict format (town, permits[]) or flat list
+    if isinstance(data, dict):
+        records = data.get("permits", data.get("results", []))
+    elif isinstance(data, list):
+        records = data
+    else:
+        return {"town": town_id, "total": 0, "ingested": 0, "errors": 0}
+
+    # Normalize field names
+    records = [normalize_record(r, town_id) for r in records]
 
     total = len(records)
     if total == 0:
@@ -103,12 +173,12 @@ async def ingest_town(
             for j in range(0, len(batch), 50):
                 mini_batch = batch[j:j + 50]
                 try:
-                    await supabase.insert("permits", mini_batch, upsert=True, minimal=True)
+                    await supabase.insert("permits", mini_batch, upsert=True, minimal=True, on_conflict="town_id,permit_number")
                     ingested += len(mini_batch)
                 except Exception as inner_exc:
                     errors += len(mini_batch)
                     if errors <= 5:
-                        print(f"  [ERROR] {town_id}: batch at offset {i+j}: {str(inner_exc)[:100]}")
+                        print(f"  [ERROR] {town_id}: batch at offset {i+j}: {str(inner_exc)[:200]}")
 
     print(f"  {town_id:25s} {ingested:>8,} ingested, {errors:>5,} errors (of {total:,} total)")
     return {"town": town_id, "total": total, "ingested": ingested, "errors": errors}

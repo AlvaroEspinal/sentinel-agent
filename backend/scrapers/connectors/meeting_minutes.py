@@ -1,11 +1,12 @@
 """
 Meeting Minutes Scraper — Municipal board minutes extraction.
 
-Scrapes meeting minutes from town websites using Firecrawl,
-then extracts structured intelligence using LLM (Claude).
+Scrapes meeting minutes from town websites using Firecrawl (if available)
+or httpx + BeautifulSoup as a fallback, then extracts structured
+intelligence using LLM.
 
 Pipeline:
-1. Firecrawl crawls the town's agenda center / meeting minutes pages
+1. Discover meeting document links via Firecrawl crawl OR httpx+BS4 fallback
 2. Extracts links to individual meeting documents (HTML or PDF)
 3. Scrapes/downloads each document
 4. Extracts text from PDFs using pdfplumber
@@ -28,6 +29,7 @@ import logging
 import re
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urljoin, urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +43,16 @@ try:
 except ImportError:
     pdfplumber = None  # type: ignore
 
-from .firecrawl_client import FirecrawlClient
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    BeautifulSoup = None  # type: ignore
+
+try:
+    from .firecrawl_client import FirecrawlClient
+except ImportError:
+    FirecrawlClient = None  # type: ignore
+
 from .town_config import BoardConfig, TownConfig
 
 
@@ -50,7 +61,7 @@ class MeetingMinutesScraper:
 
     def __init__(
         self,
-        firecrawl: FirecrawlClient,
+        firecrawl: Optional[Any] = None,
         llm_extractor: Optional[Any] = None,
         max_pages_per_board: int = 20,
     ):
@@ -61,10 +72,15 @@ class MeetingMinutesScraper:
 
     async def _ensure_http(self) -> Any:
         if self._http is None:
+            if httpx is None:
+                raise RuntimeError("httpx required: pip install httpx")
             self._http = httpx.AsyncClient(
                 timeout=httpx.Timeout(60.0, connect=10.0),
                 limits=httpx.Limits(max_connections=5),
                 follow_redirects=True,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (compatible; MunicipalIntel/1.0)",
+                },
             )
         return self._http
 
@@ -72,6 +88,121 @@ class MeetingMinutesScraper:
         if self._http:
             await self._http.aclose()
             self._http = None
+
+    # ── httpx + BeautifulSoup Fallback ─────────────────────────────────────
+
+    async def _discover_links_httpx(
+        self, url: str
+    ) -> List[Dict[str, Any]]:
+        """Discover PDF and document links from a page using httpx + BS4.
+
+        Returns data in the same format as Firecrawl crawl results:
+        [{"metadata": {"sourceURL": url}, "links": [...], "markdown": ""}]
+        """
+        client = await self._ensure_http()
+        all_links: List[str] = []
+        pages_out: List[Dict[str, Any]] = []
+
+        try:
+            resp = await client.get(url, timeout=30.0)
+            if resp.status_code != 200:
+                logger.warning("[Minutes] HTTP %d fetching %s", resp.status_code, url)
+                return [{"metadata": {"sourceURL": url}, "links": [], "markdown": ""}]
+
+            html = resp.text
+            base_url = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
+
+            if BeautifulSoup is not None:
+                soup = BeautifulSoup(html, "html.parser")
+                page_text = soup.get_text(separator="\n", strip=True)
+
+                for a_tag in soup.find_all("a", href=True):
+                    href = a_tag["href"]
+                    full_url = urljoin(url, href)
+
+                    # Collect PDF links
+                    if ".pdf" in href.lower():
+                        all_links.append(full_url)
+
+                    # Collect AgendaCenter ViewFile links
+                    if "/AgendaCenter/ViewFile/" in href:
+                        all_links.append(full_url)
+
+                    # Collect showpublisheddocument links (Granicus CMS)
+                    if "showpublisheddocument" in href.lower():
+                        all_links.append(full_url)
+
+                    # Collect links to sub-pages with meeting/minutes/agenda in URL
+                    if re.search(r"(minutes|agenda|meeting)", href, re.IGNORECASE):
+                        all_links.append(full_url)
+            else:
+                # Regex fallback if BS4 is not installed
+                page_text = ""
+                # Find PDF links
+                for match in re.finditer(r'href="([^"]*\.pdf[^"]*)"', html, re.IGNORECASE):
+                    all_links.append(urljoin(url, match.group(1)))
+                # Find AgendaCenter links
+                for match in re.finditer(r'href="([^"]*/AgendaCenter/ViewFile/[^"]*)"', html, re.IGNORECASE):
+                    all_links.append(urljoin(url, match.group(1)))
+                # Find showpublisheddocument links
+                for match in re.finditer(r'href="([^"]*showpublisheddocument[^"]*)"', html, re.IGNORECASE):
+                    all_links.append(urljoin(url, match.group(1)))
+
+            # Deduplicate
+            all_links = list(dict.fromkeys(all_links))
+
+            pages_out.append({
+                "metadata": {"sourceURL": url, "title": ""},
+                "links": all_links,
+                "markdown": page_text[:50000] if BeautifulSoup is not None else "",
+            })
+
+            # Follow sub-page links that look like meeting listing pages (not PDFs)
+            sub_page_links = [
+                l for l in all_links
+                if re.search(r"(minutes|agenda|meeting)", l, re.IGNORECASE)
+                and ".pdf" not in l.lower()
+                and "ViewFile" not in l
+                and "showpublisheddocument" not in l.lower()
+            ]
+
+            # Limit sub-page crawling
+            for sub_url in sub_page_links[: self.max_pages_per_board]:
+                try:
+                    sub_resp = await client.get(sub_url, timeout=30.0)
+                    if sub_resp.status_code != 200:
+                        continue
+
+                    sub_html = sub_resp.text
+                    sub_links: List[str] = []
+
+                    if BeautifulSoup is not None:
+                        sub_soup = BeautifulSoup(sub_html, "html.parser")
+                        for a_tag in sub_soup.find_all("a", href=True):
+                            href = a_tag["href"]
+                            full = urljoin(sub_url, href)
+                            if ".pdf" in href.lower() or "/AgendaCenter/ViewFile/" in href or "showpublisheddocument" in href.lower():
+                                sub_links.append(full)
+                    else:
+                        for match in re.finditer(r'href="([^"]*\.pdf[^"]*)"', sub_html, re.IGNORECASE):
+                            sub_links.append(urljoin(sub_url, match.group(1)))
+
+                    if sub_links:
+                        pages_out.append({
+                            "metadata": {"sourceURL": sub_url, "title": ""},
+                            "links": list(dict.fromkeys(sub_links)),
+                            "markdown": "",
+                        })
+                except Exception as exc:
+                    logger.debug("[Minutes] Error fetching sub-page %s: %s", sub_url, exc)
+
+        except Exception as exc:
+            logger.error("[Minutes] httpx fallback error for %s: %s", url, exc)
+            return [{"metadata": {"sourceURL": url}, "links": [], "markdown": ""}]
+
+        logger.info("[Minutes] httpx fallback found %d links across %d pages from %s",
+                    sum(len(p["links"]) for p in pages_out), len(pages_out), url)
+        return pages_out
 
     # ── Main Entry Point ──────────────────────────────────────────────────
 
@@ -128,20 +259,24 @@ class MeetingMinutesScraper:
         logger.info("[Minutes] Scraping %s / %s from %s",
                     town.name, board.name, board.minutes_url)
 
-        # Step 1: Crawl the agenda center page to find meeting links
-        pages = await self.firecrawl.crawl(
-            board.minutes_url,
-            max_pages=self.max_pages_per_board,
-            include_paths=[".*minutes.*", ".*agenda.*", ".*meeting.*"],
-        )
-
-        if not pages:
-            # Fallback: scrape the main page for PDF links
-            logger.info("[Minutes] No crawl results, trying direct scrape for PDFs")
-            pdf_links = await self.firecrawl.extract_links(
-                board.minutes_url, link_pattern=".pdf"
+        # Step 1: Discover meeting document links
+        if self.firecrawl:
+            # Primary path: Firecrawl crawl
+            pages = await self.firecrawl.crawl(
+                board.minutes_url,
+                max_pages=self.max_pages_per_board,
+                include_paths=[".*minutes.*", ".*agenda.*", ".*meeting.*"],
             )
-            pages = [{"metadata": {"sourceURL": board.minutes_url}, "links": pdf_links}]
+            if not pages:
+                logger.info("[Minutes] No crawl results, trying direct scrape for PDFs")
+                pdf_links = await self.firecrawl.extract_links(
+                    board.minutes_url, link_pattern=".pdf"
+                )
+                pages = [{"metadata": {"sourceURL": board.minutes_url}, "links": pdf_links}]
+        else:
+            # Fallback path: httpx + BeautifulSoup link discovery
+            logger.info("[Minutes] Firecrawl unavailable, using httpx fallback")
+            pages = await self._discover_links_httpx(board.minutes_url)
 
         documents = []
 

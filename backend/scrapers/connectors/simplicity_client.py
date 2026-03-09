@@ -113,6 +113,11 @@ async def get_session_id(
 
         html = resp.text
 
+        # Primary: extract sid= from iframe src (e.g. report.html?...&sid=<hex32>)
+        match = re.search(r'[?&]sid=([a-f0-9]{32})', html)
+        if match:
+            return match.group(1)
+
         # Look for ssid in check_auth_ssid URL or JavaScript
         match = re.search(r'ssid=([a-f0-9]{32})', html)
         if match:
@@ -156,11 +161,90 @@ async def get_session_id(
             except Exception:
                 pass
 
+        # Firecrawl browser fallback — render JS and extract ssid from
+        # the fully rendered page (handles dynamic iframe loading).
+        # Only attempt if Firecrawl API key is available.
+        import os
+        if os.environ.get("FIRECRAWL_API_KEY"):
+            logger.info("SimpliCITY: trying Firecrawl browser actions fallback for %s", client_name)
+            ssid = await _get_session_id_firecrawl(client_name)
+            if ssid:
+                return ssid
+        else:
+            logger.debug("SimpliCITY: skipping Firecrawl fallback (no API key)")
+
         logger.warning("SimpliCITY: could not extract ssid from %s", url)
         return None
 
     except Exception as exc:
         logger.warning("SimpliCITY session error for %s: %s", client_name, exc)
+        return None
+
+
+async def _get_session_id_firecrawl(client_name: str) -> Optional[str]:
+    """Extract SimpliCITY session ID using Firecrawl browser actions.
+
+    Renders the permit reports page with full JS execution, then
+    extracts the ssid from the rendered DOM via JavaScript.
+    """
+    try:
+        from backend.scrapers.connectors.firecrawl_client import FirecrawlClient
+
+        fc = FirecrawlClient()
+        url = f"{BASE_URL}/{client_name}/public_permit_reports.html.php"
+
+        result = await fc.scrape_with_actions(
+            url=url,
+            actions=[
+                FirecrawlClient.action_wait(3000),
+                # Extract ssid from the rendered page via JS
+                FirecrawlClient.action_execute_js(
+                    "(() => {"
+                    "  const html = document.documentElement.innerHTML;"
+                    "  const m = html.match(/[?&]sid=([a-f0-9]{32})/) || html.match(/ssid=([a-f0-9]{32})/);"
+                    "  if (m) return m[1];"
+                    "  const iframes = document.querySelectorAll('iframe');"
+                    "  for (const f of iframes) {"
+                    "    const src = f.getAttribute('src') || '';"
+                    "    const m2 = src.match(/[?&]sid=([a-f0-9]{32})/) || src.match(/ssid=([a-f0-9]{32})/);"
+                    "    if (m2) return m2[1];"
+                    "  }"
+                    "  return null;"
+                    "})()"
+                ),
+            ],
+            formats=["html"],
+        )
+
+        await fc.close()
+
+        if not result:
+            return None
+
+        # Check JS execution result in actions_results
+        actions_results = result.get("actions_results", [])
+        for ar in actions_results:
+            if isinstance(ar, str) and re.match(r'^[a-f0-9]{32}$', ar):
+                logger.info("SimpliCITY: got ssid via Firecrawl JS execution")
+                return ar
+            if isinstance(ar, dict) and ar.get("result"):
+                val = str(ar["result"])
+                if re.match(r'^[a-f0-9]{32}$', val):
+                    logger.info("SimpliCITY: got ssid via Firecrawl JS execution")
+                    return val
+
+        # Fallback: search the rendered HTML
+        html = result.get("html", "")
+        if html:
+            m = re.search(r'[?&]sid=([a-f0-9]{32})', html) or re.search(r'ssid=([a-f0-9]{32})', html)
+            if m:
+                logger.info("SimpliCITY: got ssid from Firecrawl rendered HTML")
+                return m.group(1)
+
+        return None
+
+    except Exception as exc:
+        logger.warning("SimpliCITY Firecrawl fallback error: %s", exc)
         return None
 
 
