@@ -1,0 +1,197 @@
+============================================================
+  PARCL INTELLIGENCE — Batch Permit Geocoder
+============================================================
+  Loaded 13,765 cached geocodes
+  Total permits in DB:  125,795
+  Scope:                125,795 (all towns)
+  Geocode cache:        13,765 entries
+
+  Resuming from offset 20
+  Phase 1: Scanning permits and extracting addresses...
+    Scanned 10,000 permits, found 6,688 unique addresses...
+    Scanned 20,000 permits, found 9,672 unique addresses...
+    Scanned 30,000 permits, found 11,538 unique addresses...
+    Scanned 40,000 permits, found 13,736 unique addresses...
+    Scanned 50,000 permits, found 15,423 unique addresses...
+    Scanned 60,000 permits, found 16,677 unique addresses...
+    Scanned 70,000 permits, found 21,481 unique addresses...
+    Scanned 80,000 permits, found 24,104 unique addresses...
+    Scanned 90,000 permits, found 25,785 unique addresses...
+    Scanned 100,000 permits, found 26,986 unique addresses...
+    Scanned 110,000 permits, found 28,748 unique addresses...
+    Scanned 120,000 permits, found 30,149 unique addresses...
+
+  Found 30,797 unique addresses across 125,763 permits
+  Permits without extractable address: 32
+
+  Phase 2: Geocoding 30,797 unique addresses...
+  (Cached addresses are instant, new ones take ~1 sec each)
+    Geocoded 100/30,797 (0.3%) | 0.6 addr/sec | API: 83 | Cache: 17 | Success: 75
+    Geocoded 200/30,797 (0.6%) | 0.6 addr/sec | API: 183 | Cache: 17 | Success: 150
+    Geocoded 300/30,797 (1.0%) | 0.6 addr/sec | API: 283 | Cache: 17 | Success: 224
+    Geocoded 400/30,797 (1.3%) | 0.6 addr/sec | API: 383 | Cache: 17 | Success: 299
+    Geocoded 500/30,797 (1.6%) | 0.6 addr/sec | API: 483 | Cache: 17 | Success: 369
+    Geocoded 600/30,797 (1.9%) | 0.5 addr/sec | API: 583 | Cache: 17 | Success: 446
+    Geocoded 700/30,797 (2.3%) | 0.5 addr/sec | API: 683 | Cache: 17 | Success: 516
+    Geocoded 800/30,797 (2.6%) | 0.5 addr/sec | API: 783 | Cache: 17 | Success: 588
+    Geocoded 900/30,797 (2.9%) | 0.5 addr/sec | API: 883 | Cache: 17 | Success: 661
+    Geocoded 1,000/30,797 (3.2%) | 0.5 addr/sec | API: 983 | Cache: 17 | Success: 730
+    Geocoded 1,100/30,797 (3.6%) | 0.5 addr/sec | API: 1083 | Cache: 17 | Success: 803
+    Geocoded 1,200/30,797 (3.9%) | 0.5 addr/sec | API: 1183 | Cache: 17 | Success: 866
+    Geocoded 1,300/30,797 (4.2%) | 0.5 addr/sec | API: 1283 | Cache: 17 | Success: 934
+    Geocoded 1,400/30,797 (4.5%) | 0.5 addr/sec | API: 1383 | Cache: 17 | Success: 1,002
+    Geocoded 1,500/30,797 (4.9%) | 0.5 addr/sec | API: 1483 | Cache: 17 | Success: 1,066
+    Geocoded 1,600/30,797 (5.2%) | 0.5 addr/sec | API: 1583 | Cache: 17 | Success: 1,132
+    Geocoded 1,700/30,797 (5.5%) | 0.5 addr/sec | API: 1683 | Cache: 17 | Success: 1,209
+    Geocoded 1,800/30,797 (5.8%) | 0.5 addr/sec | API: 1783 | Cache: 17 | Success: 1,277
+    Geocoded 1,900/30,797 (6.2%) | 0.5 addr/sec | API: 1883 | Cache: 17 | Success: 1,347
+    Geocoded 2,000/30,797 (6.5%) | 0.5 addr/sec | API: 1983 | Cache: 17 | Success: 1,412
+    Geocoded 2,100/30,797 (6.8%) | 0.5 addr/sec | API: 2083 | Cache: 17 | Success: 1,471
+    Geocoded 2,200/30,797 (7.1%) | 0.5 addr/sec | API: 2183 | Cache: 17 | Success: 1,530
+    Geocoded 2,300/30,797 (7.5%) | 0.5 addr/sec | API: 2283 | Cache: 17 | Success: 1,593
+    Geocoded 2,400/30,797 (7.8%) | 0.5 addr/sec | API: 2383 | Cache: 17 | Success: 1,651
+    Geocoded 2,500/30,797 (8.1%) | 0.5 addr/sec | API: 2483 | Cache: 17 | Success: 1,723
+    Geocoded 2,600/30,797 (8.4%) | 0.5 addr/sec | API: 2583 | Cache: 17 | Success: 1,787
+    Geocoded 2,700/30,797 (8.8%) | 0.5 addr/sec | API: 2683 | Cache: 17 | Success: 1,846
+    Geocoded 2,800/30,797 (9.1%) | 0.5 addr/sec | API: 2783 | Cache: 17 | Success: 1,909
+    Geocoded 2,900/30,797 (9.4%) | 0.5 addr/sec | API: 2883 | Cache: 17 | Success: 1,969
+    Geocoded 3,000/30,797 (9.7%) | 0.5 addr/sec | API: 2983 | Cache: 17 | Success: 2,037
+    Geocoded 3,100/30,797 (10.1%) | 0.5 addr/sec | API: 3083 | Cache: 17 | Success: 2,106
+    Geocoded 3,200/30,797 (10.4%) | 0.5 addr/sec | API: 3183 | Cache: 17 | Success: 2,173
+    Geocoded 3,300/30,797 (10.7%) | 0.5 addr/sec | API: 3283 | Cache: 17 | Success: 2,235
+    Geocoded 3,400/30,797 (11.0%) | 0.5 addr/sec | API: 3383 | Cache: 17 | Success: 2,302
+    Geocoded 3,500/30,797 (11.4%) | 0.5 addr/sec | API: 3483 | Cache: 17 | Success: 2,367
+    Geocoded 3,600/30,797 (11.7%) | 0.5 addr/sec | API: 3583 | Cache: 17 | Success: 2,422
+    Geocoded 3,700/30,797 (12.0%) | 0.5 addr/sec | API: 3683 | Cache: 17 | Success: 2,480
+    Geocoded 3,800/30,797 (12.3%) | 0.5 addr/sec | API: 3783 | Cache: 17 | Success: 2,540
+    Geocoded 3,900/30,797 (12.7%) | 0.5 addr/sec | API: 3883 | Cache: 17 | Success: 2,608
+    Geocoded 4,000/30,797 (13.0%) | 0.5 addr/sec | API: 3983 | Cache: 17 | Success: 2,668
+    Geocoded 4,100/30,797 (13.3%) | 0.5 addr/sec | API: 4083 | Cache: 17 | Success: 2,735
+    Geocoded 4,200/30,797 (13.6%) | 0.5 addr/sec | API: 4183 | Cache: 17 | Success: 2,796
+    Geocoded 4,300/30,797 (14.0%) | 0.5 addr/sec | API: 4283 | Cache: 17 | Success: 2,854
+    Geocoded 4,400/30,797 (14.3%) | 0.5 addr/sec | API: 4383 | Cache: 17 | Success: 2,919
+    Geocoded 4,500/30,797 (14.6%) | 0.5 addr/sec | API: 4483 | Cache: 17 | Success: 2,984
+    Geocoded 4,600/30,797 (14.9%) | 0.5 addr/sec | API: 4583 | Cache: 17 | Success: 3,047
+    Geocoded 4,700/30,797 (15.3%) | 0.5 addr/sec | API: 4683 | Cache: 17 | Success: 3,099
+    Geocoded 4,800/30,797 (15.6%) | 0.5 addr/sec | API: 4783 | Cache: 17 | Success: 3,166
+    Geocoded 4,900/30,797 (15.9%) | 0.5 addr/sec | API: 4883 | Cache: 17 | Success: 3,221
+    Geocoded 5,000/30,797 (16.2%) | 0.5 addr/sec | API: 4983 | Cache: 17 | Success: 3,275
+    Geocoded 5,100/30,797 (16.6%) | 0.5 addr/sec | API: 5083 | Cache: 17 | Success: 3,330
+    Geocoded 5,200/30,797 (16.9%) | 0.5 addr/sec | API: 5183 | Cache: 17 | Success: 3,388
+    Geocoded 5,300/30,797 (17.2%) | 0.5 addr/sec | API: 5283 | Cache: 17 | Success: 3,452
+    Geocoded 5,400/30,797 (17.5%) | 0.5 addr/sec | API: 5383 | Cache: 17 | Success: 3,528
+    Geocoded 5,500/30,797 (17.9%) | 0.5 addr/sec | API: 5483 | Cache: 17 | Success: 3,590
+    Geocoded 5,600/30,797 (18.2%) | 0.5 addr/sec | API: 5583 | Cache: 17 | Success: 3,650
+    Geocoded 5,700/30,797 (18.5%) | 0.5 addr/sec | API: 5683 | Cache: 17 | Success: 3,707
+    Geocoded 5,800/30,797 (18.8%) | 0.5 addr/sec | API: 5783 | Cache: 17 | Success: 3,769
+    Geocoded 5,900/30,797 (19.2%) | 0.5 addr/sec | API: 5883 | Cache: 17 | Success: 3,837
+    Geocoded 6,000/30,797 (19.5%) | 0.5 addr/sec | API: 5983 | Cache: 17 | Success: 3,902
+    Geocoded 6,100/30,797 (19.8%) | 0.5 addr/sec | API: 6083 | Cache: 17 | Success: 3,964
+    Geocoded 6,200/30,797 (20.1%) | 0.5 addr/sec | API: 6183 | Cache: 17 | Success: 4,028
+    Geocoded 6,300/30,797 (20.5%) | 0.5 addr/sec | API: 6283 | Cache: 17 | Success: 4,082
+    Geocoded 6,400/30,797 (20.8%) | 0.5 addr/sec | API: 6383 | Cache: 17 | Success: 4,145
+    Geocoded 6,500/30,797 (21.1%) | 0.5 addr/sec | API: 6483 | Cache: 17 | Success: 4,203
+    Geocoded 6,600/30,797 (21.4%) | 0.5 addr/sec | API: 6583 | Cache: 17 | Success: 4,262
+    Geocoded 6,700/30,797 (21.8%) | 0.5 addr/sec | API: 6683 | Cache: 17 | Success: 4,322
+    Geocoded 6,800/30,797 (22.1%) | 0.5 addr/sec | API: 6783 | Cache: 17 | Success: 4,384
+    Geocoded 6,900/30,797 (22.4%) | 0.5 addr/sec | API: 6883 | Cache: 17 | Success: 4,446
+    Geocoded 7,000/30,797 (22.7%) | 0.5 addr/sec | API: 6983 | Cache: 17 | Success: 4,505
+    Geocoded 7,100/30,797 (23.1%) | 0.5 addr/sec | API: 7083 | Cache: 17 | Success: 4,568
+    Geocoded 7,200/30,797 (23.4%) | 0.5 addr/sec | API: 7183 | Cache: 17 | Success: 4,628
+    Geocoded 7,300/30,797 (23.7%) | 0.5 addr/sec | API: 7283 | Cache: 17 | Success: 4,682
+    Geocoded 7,400/30,797 (24.0%) | 0.5 addr/sec | API: 7383 | Cache: 17 | Success: 4,738
+    Geocoded 7,500/30,797 (24.4%) | 0.5 addr/sec | API: 7483 | Cache: 17 | Success: 4,793
+    Geocoded 7,600/30,797 (24.7%) | 0.5 addr/sec | API: 7583 | Cache: 17 | Success: 4,847
+    Geocoded 7,700/30,797 (25.0%) | 0.5 addr/sec | API: 7683 | Cache: 17 | Success: 4,908
+    Geocoded 7,800/30,797 (25.3%) | 0.5 addr/sec | API: 7783 | Cache: 17 | Success: 4,965
+    Geocoded 7,900/30,797 (25.7%) | 0.5 addr/sec | API: 7883 | Cache: 17 | Success: 5,034
+    Geocoded 8,000/30,797 (26.0%) | 0.5 addr/sec | API: 7983 | Cache: 17 | Success: 5,090
+    Geocoded 8,100/30,797 (26.3%) | 0.5 addr/sec | API: 8083 | Cache: 17 | Success: 5,149
+    Geocoded 8,200/30,797 (26.6%) | 0.5 addr/sec | API: 8183 | Cache: 17 | Success: 5,204
+    Geocoded 8,300/30,797 (27.0%) | 0.5 addr/sec | API: 8283 | Cache: 17 | Success: 5,259
+    Geocoded 8,400/30,797 (27.3%) | 0.5 addr/sec | API: 8383 | Cache: 17 | Success: 5,324
+    Geocoded 8,500/30,797 (27.6%) | 0.5 addr/sec | API: 8483 | Cache: 17 | Success: 5,400
+    Geocoded 8,600/30,797 (27.9%) | 0.5 addr/sec | API: 8583 | Cache: 17 | Success: 5,467
+    Geocoded 8,700/30,797 (28.2%) | 0.5 addr/sec | API: 8683 | Cache: 17 | Success: 5,539
+    Geocoded 8,800/30,797 (28.6%) | 0.5 addr/sec | API: 8783 | Cache: 17 | Success: 5,597
+    Geocoded 8,900/30,797 (28.9%) | 0.5 addr/sec | API: 8883 | Cache: 17 | Success: 5,674
+    Geocoded 9,000/30,797 (29.2%) | 0.5 addr/sec | API: 8983 | Cache: 17 | Success: 5,740
+    Geocoded 9,100/30,797 (29.5%) | 0.5 addr/sec | API: 9083 | Cache: 17 | Success: 5,802
+    Geocoded 9,200/30,797 (29.9%) | 0.5 addr/sec | API: 9183 | Cache: 17 | Success: 5,868
+    Geocoded 9,300/30,797 (30.2%) | 0.5 addr/sec | API: 9283 | Cache: 17 | Success: 5,926
+    Geocoded 9,400/30,797 (30.5%) | 0.5 addr/sec | API: 9383 | Cache: 17 | Success: 5,985
+    Geocoded 9,500/30,797 (30.8%) | 0.5 addr/sec | API: 9483 | Cache: 17 | Success: 6,049
+    Geocoded 9,600/30,797 (31.2%) | 0.5 addr/sec | API: 9583 | Cache: 17 | Success: 6,110
+    Geocoded 9,700/30,797 (31.5%) | 0.5 addr/sec | API: 9683 | Cache: 17 | Success: 6,179
+    Geocoded 9,800/30,797 (31.8%) | 0.5 addr/sec | API: 9783 | Cache: 17 | Success: 6,241
+    Geocoded 9,900/30,797 (32.1%) | 0.5 addr/sec | API: 9883 | Cache: 17 | Success: 6,307
+    Geocoded 10,000/30,797 (32.5%) | 0.5 addr/sec | API: 9983 | Cache: 17 | Success: 6,371
+    Geocoded 10,100/30,797 (32.8%) | 0.5 addr/sec | API: 10083 | Cache: 17 | Success: 6,435
+    Geocoded 10,200/30,797 (33.1%) | 0.5 addr/sec | API: 10183 | Cache: 17 | Success: 6,491
+    Geocoded 10,300/30,797 (33.4%) | 0.5 addr/sec | API: 10283 | Cache: 17 | Success: 6,560
+    Geocoded 10,400/30,797 (33.8%) | 0.5 addr/sec | API: 10383 | Cache: 17 | Success: 6,626
+    Geocoded 10,500/30,797 (34.1%) | 0.5 addr/sec | API: 10483 | Cache: 17 | Success: 6,679
+    Geocoded 10,600/30,797 (34.4%) | 0.5 addr/sec | API: 10583 | Cache: 17 | Success: 6,730
+    Geocoded 10,700/30,797 (34.7%) | 0.5 addr/sec | API: 10683 | Cache: 17 | Success: 6,795
+    Geocoded 10,800/30,797 (35.1%) | 0.5 addr/sec | API: 10783 | Cache: 17 | Success: 6,851
+    Geocoded 10,900/30,797 (35.4%) | 0.5 addr/sec | API: 10883 | Cache: 17 | Success: 6,916
+    Geocoded 11,000/30,797 (35.7%) | 0.5 addr/sec | API: 10983 | Cache: 17 | Success: 6,973
+    Geocoded 11,100/30,797 (36.0%) | 0.5 addr/sec | API: 11083 | Cache: 17 | Success: 7,027
+    Geocoded 11,200/30,797 (36.4%) | 0.5 addr/sec | API: 11183 | Cache: 17 | Success: 7,095
+    Geocoded 11,300/30,797 (36.7%) | 0.5 addr/sec | API: 11283 | Cache: 17 | Success: 7,152
+    Geocoded 11,400/30,797 (37.0%) | 0.5 addr/sec | API: 11383 | Cache: 17 | Success: 7,207
+    Geocoded 11,500/30,797 (37.3%) | 0.5 addr/sec | API: 11483 | Cache: 17 | Success: 7,259
+    Geocoded 11,600/30,797 (37.7%) | 0.5 addr/sec | API: 11583 | Cache: 17 | Success: 7,321
+    Geocoded 11,700/30,797 (38.0%) | 0.5 addr/sec | API: 11683 | Cache: 17 | Success: 7,384
+    Geocoded 11,800/30,797 (38.3%) | 0.5 addr/sec | API: 11783 | Cache: 17 | Success: 7,442
+    Geocoded 11,900/30,797 (38.6%) | 0.5 addr/sec | API: 11883 | Cache: 17 | Success: 7,501
+    Geocoded 12,000/30,797 (39.0%) | 0.5 addr/sec | API: 11983 | Cache: 17 | Success: 7,558
+    Geocoded 12,100/30,797 (39.3%) | 0.5 addr/sec | API: 12083 | Cache: 17 | Success: 7,613
+    Geocoded 12,200/30,797 (39.6%) | 0.5 addr/sec | API: 12183 | Cache: 17 | Success: 7,658
+    Geocoded 12,300/30,797 (39.9%) | 0.5 addr/sec | API: 12283 | Cache: 17 | Success: 7,691
+    Geocoded 12,400/30,797 (40.3%) | 0.5 addr/sec | API: 12383 | Cache: 17 | Success: 7,729
+    Geocoded 12,500/30,797 (40.6%) | 0.5 addr/sec | API: 12483 | Cache: 17 | Success: 7,766
+    Geocoded 12,600/30,797 (40.9%) | 0.5 addr/sec | API: 12583 | Cache: 17 | Success: 7,801
+    Geocoded 12,700/30,797 (41.2%) | 0.5 addr/sec | API: 12683 | Cache: 17 | Success: 7,840
+    Geocoded 12,800/30,797 (41.6%) | 0.5 addr/sec | API: 12783 | Cache: 17 | Success: 7,884
+    Geocoded 12,900/30,797 (41.9%) | 0.5 addr/sec | API: 12883 | Cache: 17 | Success: 7,917
+    Geocoded 13,000/30,797 (42.2%) | 0.5 addr/sec | API: 12983 | Cache: 17 | Success: 7,955
+    Geocoded 13,100/30,797 (42.5%) | 0.5 addr/sec | API: 13083 | Cache: 17 | Success: 7,984
+    Geocoded 13,200/30,797 (42.9%) | 0.5 addr/sec | API: 13183 | Cache: 17 | Success: 8,022
+    Geocoded 13,300/30,797 (43.2%) | 0.5 addr/sec | API: 13283 | Cache: 17 | Success: 8,054
+    Geocoded 13,400/30,797 (43.5%) | 0.5 addr/sec | API: 13383 | Cache: 17 | Success: 8,093
+    Geocoded 13,500/30,797 (43.8%) | 0.5 addr/sec | API: 13483 | Cache: 17 | Success: 8,130
+    Geocoded 13,600/30,797 (44.2%) | 0.5 addr/sec | API: 13583 | Cache: 17 | Success: 8,161
+    Geocoded 13,700/30,797 (44.5%) | 0.5 addr/sec | API: 13683 | Cache: 17 | Success: 8,193
+    Geocoded 13,800/30,797 (44.8%) | 0.5 addr/sec | API: 13783 | Cache: 17 | Success: 8,224
+    Geocoded 13,900/30,797 (45.1%) | 0.5 addr/sec | API: 13883 | Cache: 17 | Success: 8,250
+    Geocoded 14,000/30,797 (45.5%) | 0.5 addr/sec | API: 13983 | Cache: 17 | Success: 8,279
+    Geocoded 14,100/30,797 (45.8%) | 0.5 addr/sec | API: 14083 | Cache: 17 | Success: 8,311
+    Geocoded 14,200/30,797 (46.1%) | 0.5 addr/sec | API: 14183 | Cache: 17 | Success: 8,336
+    Geocoded 14,300/30,797 (46.4%) | 0.5 addr/sec | API: 14283 | Cache: 17 | Success: 8,363
+    Geocoded 14,400/30,797 (46.8%) | 0.5 addr/sec | API: 14383 | Cache: 17 | Success: 8,397
+    Geocoded 14,500/30,797 (47.1%) | 0.5 addr/sec | API: 14483 | Cache: 17 | Success: 8,424
+    Geocoded 14,600/30,797 (47.4%) | 0.5 addr/sec | API: 14583 | Cache: 17 | Success: 8,452
+    Geocoded 14,700/30,797 (47.7%) | 0.5 addr/sec | API: 14683 | Cache: 17 | Success: 8,491
+    Geocoded 14,800/30,797 (48.1%) | 0.5 addr/sec | API: 14783 | Cache: 17 | Success: 8,531
+    Geocoded 14,900/30,797 (48.4%) | 0.5 addr/sec | API: 14883 | Cache: 17 | Success: 8,576
+    Geocoded 15,000/30,797 (48.7%) | 0.5 addr/sec | API: 14983 | Cache: 17 | Success: 8,619
+    Geocoded 15,100/30,797 (49.0%) | 0.5 addr/sec | API: 15083 | Cache: 17 | Success: 8,662
+    Geocoded 15,200/30,797 (49.4%) | 0.5 addr/sec | API: 15183 | Cache: 17 | Success: 8,709
+    Geocoded 15,300/30,797 (49.7%) | 0.5 addr/sec | API: 15283 | Cache: 17 | Success: 8,750
+    Geocoded 15,400/30,797 (50.0%) | 0.5 addr/sec | API: 15383 | Cache: 17 | Success: 8,792
+    Geocoded 15,500/30,797 (50.3%) | 0.5 addr/sec | API: 15483 | Cache: 17 | Success: 8,836
+    Geocoded 15,600/30,797 (50.7%) | 0.5 addr/sec | API: 15583 | Cache: 17 | Success: 8,874
+    Geocoded 15,700/30,797 (51.0%) | 0.5 addr/sec | API: 15683 | Cache: 17 | Success: 8,913
+    Geocoded 15,800/30,797 (51.3%) | 0.5 addr/sec | API: 15783 | Cache: 17 | Success: 8,949
+    Geocoded 15,900/30,797 (51.6%) | 0.5 addr/sec | API: 15883 | Cache: 17 | Success: 8,986
+    Geocoded 16,000/30,797 (52.0%) | 0.5 addr/sec | API: 15983 | Cache: 17 | Success: 9,032
+    Geocoded 16,100/30,797 (52.3%) | 0.5 addr/sec | API: 16083 | Cache: 17 | Success: 9,083
+    Geocoded 16,200/30,797 (52.6%) | 0.5 addr/sec | API: 16183 | Cache: 17 | Success: 9,167
+    Geocoded 16,300/30,797 (52.9%) | 0.5 addr/sec | API: 16283 | Cache: 17 | Success: 9,242
+    Geocoded 16,400/30,797 (53.3%) | 0.5 addr/sec | API: 16383 | Cache: 17 | Success: 9,319
+    Geocoded 16,500/30,797 (53.6%) | 0.5 addr/sec | API: 16483 | Cache: 17 | Success: 9,390
+    Geocoded 16,600/30,797 (53.9%) | 0.5 addr/sec | API: 16583 | Cache: 17 | Success: 9,468
+    Geocoded 16,700/30,797 (54.2%) | 0.5 addr/sec | API: 16683 | Cache: 17 | Success: 9,549
+    Geocoded 16,800/30,797 (54.6%) | 0.5 addr/sec | API: 16783 | Cache: 17 | Success: 9,632
+    Geocoded 16,900/30,797 (54.9%) | 0.5 addr/sec | API: 16883 | Cache: 17 | Success: 9,720

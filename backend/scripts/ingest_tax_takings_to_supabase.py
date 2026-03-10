@@ -104,7 +104,7 @@ def record_to_document(record: dict, town_id: str) -> dict:
         "content_text": content_text,
         "meeting_date": meeting_date,
         "content_hash": content_hash,
-        "mentions": json.dumps({
+        "mentions": {
             "address": address,
             "owner": grantee,
             "grantor": grantor,
@@ -115,7 +115,7 @@ def record_to_document(record: dict, town_id: str) -> dict:
             "property_description": prop_desc,
             "status": "Tax Taking Recorded",
             "legal_basis": "MGL Chapter 60",
-        }),
+        },
     }
 
 
@@ -188,8 +188,6 @@ async def main():
                 await db.insert(
                     "municipal_documents",
                     doc,
-                    upsert=True,
-                    on_conflict="content_hash",
                     minimal=True,
                 )
                 inserted += 1

@@ -99,6 +99,7 @@ TOWNS: List[Dict[str, Any]] = [
         "id": "dover",
         "name": "Dover",
         "urls": [
+            "https://www.doverma.gov/documentcenter/view/4554",
             "https://www.doverma.org/finance",
             "https://www.doverma.org/139/Capital-Improvement",
             "https://www.doverma.org/departments/finance",
@@ -268,10 +269,21 @@ async def scrape_town(
         logger.info("[%s] Trying: %s", town_name, url)
 
         try:
-            data = await asyncio.wait_for(
-                fc.scrape(url, formats=["markdown", "links"], only_main_content=True),
-                timeout=30.0,
-            )
+            if town_id in ("newton", "wayland"):
+                data = await asyncio.wait_for(
+                    fc.scrape_with_actions(
+                        url,
+                        actions=[{"type": "wait", "milliseconds": 5000}],
+                        formats=["markdown", "links"],
+                        only_main_content=True,
+                    ),
+                    timeout=45.0,
+                )
+            else:
+                data = await asyncio.wait_for(
+                    fc.scrape(url, formats=["markdown", "links"], only_main_content=True),
+                    timeout=30.0,
+                )
         except asyncio.TimeoutError:
             logger.warning("[%s] Timeout on %s", town_name, url)
             continue
@@ -421,14 +433,17 @@ async def main() -> None:
     summary: List[Dict[str, Any]] = []
     start_total = time.perf_counter()
 
-    for i, town in enumerate(TOWNS):
+    # Only run the 4 failed towns
+    towns_to_scrape = [t for t in TOWNS if t["id"] in ("newton", "wayland", "dover", "lincoln")]
+
+    for i, town in enumerate(towns_to_scrape):
         if i > 0:
             logger.info("Sleeping 2s before next town...")
             await asyncio.sleep(2)
 
         town_start = time.perf_counter()
         logger.info("")
-        logger.info("── [%d/%d] %s ─────────────────────────", i + 1, len(TOWNS), town["name"])
+        logger.info("── [%d/%d] %s ─────────────────────────", i + 1, len(towns_to_scrape), town["name"])
 
         try:
             result = await asyncio.wait_for(
