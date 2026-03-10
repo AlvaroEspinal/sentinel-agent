@@ -1,10 +1,11 @@
 # Parcl Intelligence — Project Status
 
-**Last Updated:** March 5, 2026 (Session 9/10)
-**Session Summary:** 
-1. Built `MEPAScraper` to query MA Environmental Monitor API via AWS Gateway (with BeautifulSoup fallback) for real estate filings.
-2. Fixed broken URLs in `MunicipalOverlayClient` for Boston Neighborhood Design Overlays and MHC Historic Inventory. 
-3. Wrote ingestion scripts `ingest_overlays.py` and `ingest_all_mepa.py` to push GeoJSON overlays and MEPA records into the Supabase database (`municipal_documents` table).
+**Last Updated:** March 10, 2026 (Session 11/12)
+**Session Summary:**
+1. Built Registry of Deeds tax takings scraper for Norfolk ALIS (62 records across 4 towns).
+2. Attempted Middlesex South Registry — blocked by Incapsula/Imperva WAF (18 diagnostic scripts documenting all approaches tried).
+3. Completed full 12-town data pipeline: ingested all 7 data sources (MEPA, overlays, wetlands, zoning, CIP, tax delinquency, meeting minutes) into Supabase.
+4. Wrote comprehensive `SCRAPER_HANDOFF.md` for handoff to Antigravity environment.
 
 ---
 
@@ -112,6 +113,44 @@
 - Run the OSINT agent against the remaining 40+ targeted affluent towns to build the full dataset.
 - Enhance the search queries for towns that bury their PDFs inside CivicPlus proprietary portals.
 - Integrate these delinquent properties into the frontend Cesium Map as high-priority red warning markers for investors.
+
+### 24. Registry of Deeds Tax Takings Scraper (Session 11)
+**Problem:** Need recorded tax taking instruments from MA Registry of Deeds to identify properties where municipalities have taken tax title.
+**Solution:** Built `scrape_tax_takings_from_registry.py` supporting two registries:
+- **Norfolk ALIS** (norfolkresearch.org) — JavaScript SPA, works with Playwright headless browser
+- **Middlesex South** (masslandrecords.com) — BLOCKED by Incapsula/Imperva WAF
+**How It Works:**
+1. Playwright navigates to registry portal
+2. Selects "Tax Taking" document type, sets date range
+3. Paginates through results extracting: address, grantor, grantee, book, page, file date
+4. Saves structured JSON to `data_cache/tax_delinquency/{town}_tax_takings.json`
+**Results:**
+- Norfolk: 62 tax taking records across 4 towns (Dover, Needham, Wellesley, Natick)
+- Middlesex: BLOCKED — 18 diagnostic scripts document all bypass attempts (WAF detects Playwright even in stealth mode)
+**Ingest Script:** `ingest_tax_takings_to_supabase.py` (ready, not yet run)
+
+### 25. Complete 12-Town Data Pipeline (Sessions 11-12)
+**Achievement:** All 7 primary data sources ingested into Supabase for 12 MVP towns.
+**Final Supabase State:**
+| Data Source | Table | Records |
+|-------------|-------|---------|
+| Permits | `permits` | 104,257 |
+| MEPA | `municipal_documents` | 5,314 |
+| Meeting Minutes | `municipal_documents` | 1,766 |
+| Overlays | `municipal_documents` | 403 |
+| Tax Delinquency | `municipal_documents` | 71 |
+| Wetlands | `municipal_documents` | 12 |
+| Zoning | `municipal_documents` | 12 |
+| CIP | `municipal_documents` | 8 |
+
+### 26. Scraper Handoff Documentation (Session 12)
+Wrote comprehensive `SCRAPER_HANDOFF.md` (17KB) covering all 9 data sources, 12 towns, with:
+- Current Supabase state with exact row counts
+- 12 MVP town completion matrix
+- Connector architecture for each data source
+- Remaining work prioritized (HIGH/MEDIUM/LOW)
+- Key file reference tables
+- 11 critical gotchas
 
 ---
 
