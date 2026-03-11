@@ -177,10 +177,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+# CORS — allow Vercel production + local dev
+_cors_origins = [
+    FRONTEND_URL,
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "https://sentinel-agent-alpha.vercel.app",
+    "https://sentinel-agent-alvaro-espinals-projects.vercel.app",
+    "https://sentinel-agent-git-main-alvaro-espinals-projects.vercel.app",
+]
+# Filter out empty strings
+_cors_origins = [o for o in _cors_origins if o]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL, "http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:3000", "http://127.0.0.1:5173"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
