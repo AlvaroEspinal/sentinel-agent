@@ -1,6 +1,14 @@
 # Parcl Intelligence — Project Status
 
-**Last Updated:** March 11, 2026 (Sessions 15-16 — Data Quality Pipeline + Production Deploy Prep)
+**Last Updated:** March 11, 2026 (Session 17 — Geocoder Fix + Final Geocoding Run)
+
+**Session 17 (Geocoder Fix + Final Geocoding):**
+1. **Fixed geocoder address cleaning** — Added `_clean_address()` method that strips unit/lot suffixes (#A, Unit 1101, Lot 2), simplifies range addresses (1093-1101 → 1093), removes test markers and OFF suffixes, and detects when state info is already present to avoid doubling.
+2. **Fixed Nominatim query** — The variable `full_address` was undefined after refactoring; changed to use `clean_addr` from the new cleaning method.
+3. **Added cache key fallback** — Old cache entries (4K+) used a different key format; added backward-compatible lookup that checks both old and new formats and migrates hits.
+4. **Purged 1,012 failed cache entries** — Stale failures from the old doubled-address format were blocking re-geocoding.
+5. **Ran full geocoding batch for all 12 MVP towns** — 98.2% of addressable permits now geocoded (68,532 / 69,806).
+6. **Key finding:** Most ungeocoded permits in Newton (11,238), Lexington (8,665), Natick (5,123) etc. simply have NO address data — the geocoder successfully resolves 91-100% of permits that have addresses.
 
 **Session 16 (Production Deployment Prep):**
 1. Fixed frontend API base URL — `api.ts` now uses `VITE_API_URL` env var (was hardcoded localhost:8000).
@@ -48,7 +56,7 @@
 | Table | Rows | Notes |
 |-------|------|-------|
 | properties | 91,983 | MassGIS parcels, all 12 MVP towns |
-| permits | 439,175 | 44% geocoded (193K with lat/lon) |
+| permits | 439,175 | 65.7% geocoded (68.5K of 104K MVP), 98.2% of addressable |
 | documents | 129,947 | Legacy permit documents |
 | document_locations | 168,754 | Legacy geocoded permits |
 | municipal_documents | 8,001 | CIP, meeting minutes, tax takings |
@@ -57,21 +65,22 @@
 | municipal_overlays | 403 | Wetlands + zoning overlays |
 | towns | 352 | MA municipalities |
 
-### Properties by Town
-| Town | Properties | Permits | Permits Geocoded |
-|------|-----------|---------|-----------------|
-| Newton | 23,000 | 12,766 | 10.5% |
-| Lexington | 11,331 | 9,312 | 6.8% |
-| Natick | 11,061 | 5,699 | 9.2% |
-| Needham | 9,770 | 5,593 | 14.1% |
-| Brookline | 8,439 | 63 | 92.1% |
-| Wellesley | 8,000 | 3,586 | 15.0% |
-| Concord | 5,102 | 16,582 | 96.2% |
-| Wayland | 5,049 | 1,654 | 13.2% |
-| Weston | 4,062 | 39,387 | 99.3% |
-| Dover | 2,503 | 311 | 46.3% |
-| Sherborn | 1,878 | 6,364 | 95.5% |
-| Lincoln | 1,788 | 2,940 | 90.9% |
+### Properties by Town (Post-Session 17 Geocoding)
+| Town | Properties | Permits | Has Address | Geocoded | % of Addressable |
+|------|-----------|---------|-------------|----------|------------------|
+| Weston | 4,062 | 39,387 | 39,376 | 39,115 | 99.3% |
+| Concord | 5,102 | 16,582 | 16,582 | 16,047 | 96.8% |
+| Newton | 23,000 | 12,766 | 1,528 | 1,453 | 95.1% |
+| Lexington | 11,331 | 9,312 | 647 | 644 | 99.5% |
+| Sherborn | 1,878 | 6,364 | 6,348 | 6,119 | 96.4% |
+| Natick | 11,061 | 5,699 | 576 | 525 | 91.1% |
+| Needham | 9,770 | 5,593 | 803 | 792 | 98.6% |
+| Wellesley | 8,000 | 3,586 | 565 | 564 | 99.8% |
+| Lincoln | 1,788 | 2,940 | 2,940 | 2,837 | 96.5% |
+| Wayland | 5,049 | 1,654 | 233 | 233 | 100.0% |
+| Dover | 2,503 | 311 | 145 | 144 | 99.3% |
+| Brookline | 8,439 | 63 | 63 | 59 | 93.7% |
+| **TOTAL** | **91,983** | **104,257** | **69,806** | **68,532** | **98.2%** |
 
 ### Deployment Status
 | Component | Status | URL |
@@ -83,8 +92,8 @@
 ### Next Steps
 1. **Deploy backend** — Run `bash deploy-backend.sh` (Railway interactive login required)
 2. **Set VITE_API_URL** — On Vercel, add env var pointing to Railway backend URL
-3. **Continue permit geocoding** — Newton, Lexington, Natick, Needham need geocoding
-4. **Link permits → properties** — Run `link_permits_to_properties.py` after geocoding
+3. **Link permits → properties** — Run `link_permits_to_properties.py` (geocoding complete)
+4. **Backfill missing addresses** — Newton (11K), Lexington (8.7K), Natick (5.1K) permits lack addresses in source data
 5. **UI polish** — Property detail views, town dashboards, data quality indicators
 
 ---
