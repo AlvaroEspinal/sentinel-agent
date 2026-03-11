@@ -1,6 +1,31 @@
 # Parcl Intelligence — Project Status
 
-**Last Updated:** March 10, 2026 (Session 14 — Full Audit + Antigravity Unification)
+**Last Updated:** March 11, 2026 (Sessions 15-16 — Data Quality Pipeline + Production Deploy Prep)
+
+**Session 16 (Production Deployment Prep):**
+1. Fixed frontend API base URL — `api.ts` now uses `VITE_API_URL` env var (was hardcoded localhost:8000).
+2. Updated backend CORS to include all 3 Vercel production domains.
+3. Created Dockerfile (Python 3.11-slim, PORT env var), Procfile, .python-version, .dockerignore.
+4. Created `render.yaml` (Render Blueprint) and `railway.toml` for one-click cloud deployment.
+5. Created `deploy-backend.sh` — single-command Railway deploy script.
+6. Committed and pushed all data quality scripts + deployment files to GitHub (3,922 additions, 12 files).
+7. Verified Vercel frontend deployment is READY (sentinel-agent-alpha.vercel.app).
+8. **Blocking:** Railway CLI requires interactive browser login — deploy script ready for user to run.
+
+**Session 15 (Data Quality Pipeline — 7-Agent Plan):**
+1. **Properties table populated** — 91,983 parcels from MassGIS across all 12 MVP towns.
+2. **Permits geocoded** — 193,318 / 439,175 permits (44%) have lat/lon coordinates.
+   - Weston 99.3%, Concord 96.2%, Sherborn 95.5%, Brookline 92.1%, Lincoln 90.9% geocoded.
+   - Newton, Lexington, Natick, Needham, Wellesley, Wayland still need geocoding.
+3. **MEPA town_id fixed** — 117 filings reassigned from `boston` to correct MVP towns via MEPA API re-query. 0 MEPA filings now stuck on `town_id='boston'`.
+4. **SQL views created** — `v_property_360`, `v_town_dashboard`, `v_coverage_matrix`, `v_property_timeline` (migration 004).
+5. **DATA_AUDIT_REPORT.md v2** — comprehensive audit with coverage matrix, data quality scores.
+6. Scripts created: `populate_properties.py`, `geocode_permits_table.py`, `fix_mepa_towns.py`, `link_permits_to_properties.py`, `scrape_missing_cip.py`.
+
+**Session 14 (Full Audit):**
+1. Comprehensive audit of all 12 MVP towns across all 9 data sources.
+2. Reviewed Antigravity workstream to unify next steps.
+3. Updated PROJECT_STATUS.md with full completion matrix and tomorrow plan.
 
 **Session 13 (Antigravity):**
 1. Tax Takings ingested — 62 Norfolk Registry records inserted to Supabase.
@@ -10,16 +35,57 @@
 5. Batch geocoding complete — 106,620 document_locations rows (21,530 unique addresses).
 6. All ingest scripts run — CIP (8→12 resolved), Zoning (12), Wetlands (12).
 
-**Session 14 (Full Audit):**
-1. Comprehensive audit of all 12 MVP towns across all 9 data sources.
-2. Reviewed Antigravity workstream to unify next steps.
-3. Updated PROJECT_STATUS.md with full completion matrix and tomorrow plan.
-
 **Previous Sessions 11-12:**
 1. Built Registry of Deeds tax takings scraper for Norfolk ALIS (62 records across 4 towns).
 2. Attempted Middlesex South Registry — blocked by Incapsula/Imperva WAF (18 diagnostic scripts documenting all approaches tried).
 3. Completed full 12-town data pipeline: ingested all 7 data sources (MEPA, overlays, wetlands, zoning, CIP, tax delinquency, meeting minutes) into Supabase.
 4. Wrote comprehensive `SCRAPER_HANDOFF.md` for handoff to Antigravity environment.
+
+---
+
+## Current Database Summary (March 11, 2026)
+
+| Table | Rows | Notes |
+|-------|------|-------|
+| properties | 91,983 | MassGIS parcels, all 12 MVP towns |
+| permits | 439,175 | 44% geocoded (193K with lat/lon) |
+| documents | 129,947 | Legacy permit documents |
+| document_locations | 168,754 | Legacy geocoded permits |
+| municipal_documents | 8,001 | CIP, meeting minutes, tax takings |
+| mepa_filings | 5,557 | MEPA environmental filings |
+| tax_delinquent_parcels | 71 | Tax delinquency records |
+| municipal_overlays | 403 | Wetlands + zoning overlays |
+| towns | 352 | MA municipalities |
+
+### Properties by Town
+| Town | Properties | Permits | Permits Geocoded |
+|------|-----------|---------|-----------------|
+| Newton | 23,000 | 12,766 | 10.5% |
+| Lexington | 11,331 | 9,312 | 6.8% |
+| Natick | 11,061 | 5,699 | 9.2% |
+| Needham | 9,770 | 5,593 | 14.1% |
+| Brookline | 8,439 | 63 | 92.1% |
+| Wellesley | 8,000 | 3,586 | 15.0% |
+| Concord | 5,102 | 16,582 | 96.2% |
+| Wayland | 5,049 | 1,654 | 13.2% |
+| Weston | 4,062 | 39,387 | 99.3% |
+| Dover | 2,503 | 311 | 46.3% |
+| Sherborn | 1,878 | 6,364 | 95.5% |
+| Lincoln | 1,788 | 2,940 | 90.9% |
+
+### Deployment Status
+| Component | Status | URL |
+|-----------|--------|-----|
+| Frontend (Vercel) | ✅ READY | sentinel-agent-alpha.vercel.app |
+| Backend (Railway) | ⏳ Pending | Needs `bash deploy-backend.sh` |
+| Database (Supabase) | ✅ Active | tkexrzohviadsgolmupa |
+
+### Next Steps
+1. **Deploy backend** — Run `bash deploy-backend.sh` (Railway interactive login required)
+2. **Set VITE_API_URL** — On Vercel, add env var pointing to Railway backend URL
+3. **Continue permit geocoding** — Newton, Lexington, Natick, Needham need geocoding
+4. **Link permits → properties** — Run `link_permits_to_properties.py` after geocoding
+5. **UI polish** — Property detail views, town dashboards, data quality indicators
 
 ---
 
