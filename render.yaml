@@ -1,0 +1,28 @@
+# Render Blueprint — one-click deploy from dashboard
+# Go to render.com/new → Blueprint → connect GitHub repo
+services:
+  - type: web
+    name: parcl-intelligence-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    region: ohio
+    plan: free
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: FIRECRAWL_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        value: https://sentinel-agent-alpha.vercel.app
+      - key: NOMINATIM_USER_AGENT
+        value: parcl-intelligence/1.0
+      - key: LLM_PROVIDER
+        value: anthropic
+      - key: PORT
+        value: 8000
+    healthCheckPath: /api/health

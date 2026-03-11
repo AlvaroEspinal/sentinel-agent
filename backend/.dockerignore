@@ -1,0 +1,13 @@
+__pycache__
+*.pyc
+.env
+.env.*
+data_cache/
+*.json.bak
+.pytest_cache
+.mypy_cache
+scripts/
+tests/
+*.md
+.git
+.gitignore
