@@ -124,24 +124,78 @@ class BatchGeocoder:
     def cache_size(self) -> int:
         return len(self._cache)
 
+    @staticmethod
+    def _clean_address(address: str, town_id: str) -> str:
+        """
+        Clean an address for geocoding:
+        1. If address already contains ", MA" or state+zip, use as-is
+        2. Strip "Unit XXX" suffixes that confuse Nominatim
+        3. Simplify range addresses like "1093-1101 CHESTNUT ST" → "1093 CHESTNUT ST"
+        4. Strip "OFF" suffix (e.g., "0 DEDHAM ST OFF" → "0 DEDHAM ST")
+        """
+        import re
+        addr = address.strip()
+
+        # Strip "Unit XXX", "#XXX", "Lot X" apartment/unit/lot suffixes
+        addr = re.sub(r',?\s*Unit\s+\S+', '', addr, flags=re.IGNORECASE).strip()
+        addr = re.sub(r'\s+#\S+', '', addr)  # " #A", " #2B", etc.
+        addr = re.sub(r',?\s*Lot\s+\d+', '', addr, flags=re.IGNORECASE).strip()
+
+        # Strip test markers
+        addr = re.sub(r'--test\s+only', '', addr, flags=re.IGNORECASE).strip()
+
+        # Simplify range addresses: "1093-1101 CHESTNUT" → "1093 CHESTNUT"
+        # Also handles "100 - 309 KEYES RD" with spaces around dash
+        addr = re.sub(r'^(\d+)\s*-\s*\d+\s+', r'\1 ', addr)
+
+        # Strip "OFF" suffix (e.g., "0 DEDHAM ST OFF, ..." → "0 DEDHAM ST, ...")
+        addr = re.sub(r'\s+OFF\b', '', addr, flags=re.IGNORECASE)
+
+        # Collapse multiple commas/spaces from removals
+        addr = re.sub(r',\s*,', ',', addr)
+        addr = re.sub(r'\s{2,}', ' ', addr).strip().strip(',')
+
+        # Check if address already has state info (", MA " or ", MA\d{5}")
+        has_state = bool(re.search(r',\s*MA\s+\d{5}', addr, re.IGNORECASE)) or \
+                    bool(re.search(r',\s*MA\s*$', addr, re.IGNORECASE))
+
+        if not has_state:
+            # Append town + state
+            town_display = MVP_TOWNS.get(town_id.lower(), town_id.title())
+            addr = f"{addr}, {town_display}, MA"
+
+        return addr
+
     async def geocode(self, address: str, town_id: str) -> Optional[Dict]:
         """
         Geocode an address. Returns {"lat": float, "lon": float} or None.
 
-        Appends ", {TownDisplayName}, MA" to the address before querying.
+        Cleans the address (strips units, simplifies ranges) and queries Nominatim.
         Results are cached to disk so subsequent runs skip already-geocoded addresses.
         """
-        town_display = MVP_TOWNS.get(town_id.lower(), town_id.title())
-        full_address = f"{address}, {town_display}, {TOWN_STATE}"
-        cache_key = full_address.lower().strip()
+        clean_addr = self._clean_address(address, town_id)
+        cache_key = clean_addr.lower().strip()
 
-        # Check cache first
+        # Check cache first (new clean key format)
         if cache_key in self._cache:
             cached = self._cache[cache_key]
             self.stats["cache_hits"] += 1
             if cached.get("lat") and cached.get("lon"):
                 return cached
             return None  # Previously failed geocode
+
+        # Fallback: check old cache key format (doubled-up town+state)
+        # Old format was: "{raw_address}, {TownName}, MA"
+        town_display = MVP_TOWNS.get(town_id.lower(), town_id.title())
+        old_key = f"{address.strip()}, {town_display}, {TOWN_STATE}".lower().strip()
+        if old_key in self._cache:
+            cached = self._cache[old_key]
+            self.stats["cache_hits"] += 1
+            if cached.get("lat") and cached.get("lon"):
+                # Migrate to new key format
+                self._cache[cache_key] = cached
+                return cached
+            return None
 
         if self.dry_run:
             return None
@@ -154,7 +208,7 @@ class BatchGeocoder:
 
         try:
             params = {
-                "q": full_address,
+                "q": clean_addr,
                 "format": "json",
                 "limit": 1,
                 "addressdetails": 1,
