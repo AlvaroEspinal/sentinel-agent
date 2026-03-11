@@ -177,7 +177,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow Vercel production + local dev
+# CORS — allow Vercel production, Render backend, + local dev
 _cors_origins = [
     FRONTEND_URL,
     "http://localhost:5173",
@@ -188,12 +188,20 @@ _cors_origins = [
     "https://sentinel-agent-alvaro-espinals-projects.vercel.app",
     "https://sentinel-agent-git-main-alvaro-espinals-projects.vercel.app",
 ]
+
+# Auto-add Render external URL if available
+import os as _os
+_render_url = _os.getenv("RENDER_EXTERNAL_URL", "")
+if _render_url:
+    _cors_origins.append(_render_url)
+
 # Filter out empty strings
 _cors_origins = [o for o in _cors_origins if o]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
+    allow_origin_regex=r"https://.*\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
