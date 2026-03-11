@@ -10,6 +10,9 @@ import {
   Building2,
   TrendingUp,
   Loader2,
+  Leaf,
+  Landmark,
+  ExternalLink,
 } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import {
@@ -19,6 +22,8 @@ import {
   getZoning,
   getLandRecords,
   getComps,
+  getMepaFilings,
+  getCipDocuments,
 } from "../../services/api";
 import type {
   FloodZoneInfo,
@@ -31,9 +36,9 @@ import type {
   CompsSummary,
   CompsResponse,
 } from "../../services/api";
-import type { Permit } from "../../types";
+import type { Permit, MepaFiling, CipDocument } from "../../types";
 
-type TabId = "permits" | "parcel" | "flood" | "zoning" | "deeds" | "comps" | "agents";
+type TabId = "permits" | "parcel" | "flood" | "zoning" | "deeds" | "comps" | "mepa" | "cip" | "agents";
 
 const TABS: { id: TabId; label: string; icon: React.FC<{ className?: string }> }[] = [
   { id: "permits", label: "Permits", icon: FileText },
@@ -42,6 +47,8 @@ const TABS: { id: TabId; label: string; icon: React.FC<{ className?: string }> }
   { id: "zoning", label: "Zoning", icon: Map },
   { id: "deeds", label: "Deeds", icon: ScrollText },
   { id: "comps", label: "Comps", icon: TrendingUp },
+  { id: "mepa", label: "MEPA", icon: Leaf },
+  { id: "cip", label: "CIP", icon: Landmark },
   { id: "agents", label: "Agents", icon: Bot },
 ];
 
@@ -85,6 +92,8 @@ const PropertyDetails: React.FC<{
   const [ownership, setOwnership] = useState<OwnershipInfo | null>(null);
   const [comps, setComps] = useState<CompSale[]>([]);
   const [compsSummary, setCompsSummary] = useState<CompsSummary | null>(null);
+  const [mepaFilings, setMepaFilings] = useState<MepaFiling[]>([]);
+  const [cipDocuments, setCipDocuments] = useState<CipDocument[]>([]);
 
   // Loading states
   const [loadingPermits, setLoadingPermits] = useState(false);
@@ -93,6 +102,8 @@ const PropertyDetails: React.FC<{
   const [loadingZoning, setLoadingZoning] = useState(false);
   const [loadingDeeds, setLoadingDeeds] = useState(false);
   const [loadingComps, setLoadingComps] = useState(false);
+  const [loadingMepa, setLoadingMepa] = useState(false);
+  const [loadingCip, setLoadingCip] = useState(false);
 
   const hasCoords =
     source && (source.latitude !== 0 || source.longitude !== 0);
@@ -107,6 +118,8 @@ const PropertyDetails: React.FC<{
     setOwnership(null);
     setComps([]);
     setCompsSummary(null);
+    setMepaFilings([]);
+    setCipDocuments([]);
     setTab("permits");
   }, [sourceKey]);
 
@@ -179,6 +192,27 @@ const PropertyDetails: React.FC<{
       .catch(() => { setComps([]); setCompsSummary(null); })
       .finally(() => setLoadingComps(false));
   }, [tab, hasCoords, sourceKey]);
+
+  // Fetch MEPA filings when tab selected (needs city/town_id)
+  const townId = source?.city?.toLowerCase() || "";
+  useEffect(() => {
+    if (tab !== "mepa" || !townId || mepaFilings.length > 0) return;
+    setLoadingMepa(true);
+    getMepaFilings(townId)
+      .then((data) => setMepaFilings(data.filings || []))
+      .catch(() => setMepaFilings([]))
+      .finally(() => setLoadingMepa(false));
+  }, [tab, townId, mepaFilings.length, sourceKey]);
+
+  // Fetch CIP documents when tab selected (needs city/town_id)
+  useEffect(() => {
+    if (tab !== "cip" || !townId || cipDocuments.length > 0) return;
+    setLoadingCip(true);
+    getCipDocuments(townId)
+      .then((data) => setCipDocuments(data.documents || []))
+      .catch(() => setCipDocuments([]))
+      .finally(() => setLoadingCip(false));
+  }, [tab, townId, cipDocuments.length, sourceKey]);
 
   if (!source) return null;
 
@@ -709,6 +743,144 @@ const PropertyDetails: React.FC<{
                 ))}
                 <div className="text-[8px] text-parcl-text-muted mt-2">
                   Source: MassGIS Property Tax Parcels &middot; 500m radius
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── MEPA TAB ───────────────────────────────────────────── */}
+        {tab === "mepa" && (
+          <>
+            {loadingMepa ? (
+              <LoadingState text="Loading MEPA filings..." />
+            ) : !townId ? (
+              <EmptyState text="City data needed to look up MEPA filings" />
+            ) : mepaFilings.length === 0 ? (
+              <EmptyState text="No MEPA environmental filings found for this municipality" />
+            ) : (
+              <div className="space-y-2">
+                <div className="text-[10px] uppercase tracking-wider text-parcl-text-muted mb-1">
+                  MEPA Environmental Filings &middot; {mepaFilings.length}
+                </div>
+                {mepaFilings.map((f) => (
+                  <div
+                    key={f.id}
+                    className="p-2.5 rounded-md bg-parcl-surface border border-parcl-border/50 space-y-1"
+                  >
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {f.eea_number && (
+                        <span className="text-[10px] font-mono text-parcl-accent">
+                          EEA#{f.eea_number}
+                        </span>
+                      )}
+                      {f.status && (
+                        <span className={`badge ${
+                          f.status.toLowerCase().includes("approved") || f.status.toLowerCase().includes("certificate")
+                            ? "badge-green"
+                            : f.status.toLowerCase().includes("denied")
+                              ? "badge-red"
+                              : "badge-amber"
+                        }`}>
+                          {f.status}
+                        </span>
+                      )}
+                    </div>
+                    {f.title && (
+                      <p className="text-[11px] text-parcl-text line-clamp-2 font-medium">
+                        {f.title}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3 text-[9px] text-parcl-text-muted flex-wrap">
+                      {f.proponent && <span>Proponent: {f.proponent}</span>}
+                      {f.address && <span>{f.address}</span>}
+                      {f.scraped_at && <span>{f.scraped_at.slice(0, 10)}</span>}
+                    </div>
+                    {f.source_url && (
+                      <a
+                        href={f.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[9px] text-parcl-accent hover:underline mt-0.5"
+                      >
+                        <ExternalLink className="w-2.5 h-2.5" />
+                        Source Document
+                      </a>
+                    )}
+                  </div>
+                ))}
+                <div className="text-[8px] text-parcl-text-muted mt-2">
+                  Source: MEPA Environmental Monitor
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── CIP TAB ────────────────────────────────────────────── */}
+        {tab === "cip" && (
+          <>
+            {loadingCip ? (
+              <LoadingState text="Loading capital improvement plans..." />
+            ) : !townId ? (
+              <EmptyState text="City data needed to look up CIP documents" />
+            ) : cipDocuments.length === 0 ? (
+              <EmptyState text="No Capital Improvement Plan documents found for this municipality" />
+            ) : (
+              <div className="space-y-2">
+                <div className="text-[10px] uppercase tracking-wider text-parcl-text-muted mb-1">
+                  Capital Improvement Plans &middot; {cipDocuments.length}
+                </div>
+                {cipDocuments.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="p-2.5 rounded-md bg-parcl-surface border border-parcl-border/50 space-y-1"
+                  >
+                    <p className="text-[11px] text-parcl-text font-medium line-clamp-2">
+                      {doc.title}
+                    </p>
+                    {doc.content_summary && (
+                      <p className="text-[10px] text-parcl-text-dim line-clamp-3">
+                        {doc.content_summary}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3 text-[9px] text-parcl-text-muted flex-wrap">
+                      {doc.board && <span className="badge badge-blue">{doc.board}</span>}
+                      {doc.meeting_date && <span>{doc.meeting_date.slice(0, 10)}</span>}
+                      {doc.keywords && doc.keywords.length > 0 && (
+                        <span className="truncate max-w-[150px]">
+                          {doc.keywords.slice(0, 3).join(", ")}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {doc.source_url && (
+                        <a
+                          href={doc.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[9px] text-parcl-accent hover:underline"
+                        >
+                          <ExternalLink className="w-2.5 h-2.5" />
+                          Source
+                        </a>
+                      )}
+                      {doc.file_url && (
+                        <a
+                          href={doc.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[9px] text-parcl-accent hover:underline"
+                        >
+                          <FileText className="w-2.5 h-2.5" />
+                          Document
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <div className="text-[8px] text-parcl-text-muted mt-2">
+                  Source: Municipal Capital Improvement Plans
                 </div>
               </div>
             )}

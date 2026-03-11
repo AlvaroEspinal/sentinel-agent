@@ -1673,3 +1673,86 @@ async def get_notifications(
         "notifications": findings[:limit],
         "total": len(findings),
     }
+
+
+# ─── MEPA Filings by Town ─────────────────────────────────────────────────────
+
+@router.get("/mepa")
+async def get_mepa_by_town(
+    town_id: str = Query(..., min_length=1, description="Town ID (lowercase name)"),
+    limit: int = Query(50, ge=1, le=200),
+):
+    """Get MEPA environmental filings for a town."""
+    supabase = _get("supabase_client")
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase not connected")
+
+    try:
+        rows = await supabase.fetch(
+            table="mepa_filings",
+            select="id,town_id,eea_number,title,status,address,proponent,municipality,source_url,doc_type,scraped_at,created_at",
+            filters={"town_id": f"eq.{town_id}"},
+            order="scraped_at.desc",
+            limit=limit,
+        )
+        return {"filings": rows or [], "total": len(rows or []), "town_id": town_id}
+    except Exception as e:
+        logger.error("Error fetching MEPA filings for %s: %s", town_id, e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─── CIP (Capital Improvement Plans) by Town ─────────────────────────────────
+
+@router.get("/cip")
+async def get_cip_by_town(
+    town_id: str = Query(..., min_length=1, description="Town ID (lowercase name)"),
+    limit: int = Query(50, ge=1, le=200),
+):
+    """Get Capital Improvement Plan documents for a town."""
+    supabase = _get("supabase_client")
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase not connected")
+
+    try:
+        rows = await supabase.fetch(
+            table="municipal_documents",
+            select="id,town_id,doc_type,board,title,meeting_date,source_url,file_url,content_summary,keywords,scraped_at",
+            filters={
+                "town_id": f"eq.{town_id}",
+                "doc_type": "eq.capital_improvement",
+            },
+            order="meeting_date.desc",
+            limit=limit,
+        )
+        return {"documents": rows or [], "total": len(rows or []), "town_id": town_id}
+    except Exception as e:
+        logger.error("Error fetching CIP documents for %s: %s", town_id, e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─── Town Dashboard (aggregated view) ───────────────────────────────────────
+
+@router.get("/town-dashboard")
+async def get_town_dashboard_view(
+    town_id: str = Query(..., min_length=1, description="Town ID (lowercase name)"),
+):
+    """Get aggregated town dashboard stats from v_town_dashboard view."""
+    supabase = _get("supabase_client")
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase not connected")
+
+    try:
+        rows = await supabase.fetch(
+            table="v_town_dashboard",
+            select="town_id,town_name,county,population,center_lat,center_lon,total_properties,avg_tax_assessment,total_permits,tax_delinquent_count,meeting_minutes_count,cip_count,mepa_filing_count",
+            filters={"town_id": f"eq.{town_id}"},
+            limit=1,
+        )
+        if not rows:
+            raise HTTPException(status_code=404, detail=f"Town '{town_id}' not found in dashboard view")
+        return rows[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error fetching town dashboard for %s: %s", town_id, e)
+        raise HTTPException(status_code=500, detail=str(e))

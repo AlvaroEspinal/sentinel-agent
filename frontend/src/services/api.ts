@@ -8,6 +8,9 @@ import type {
   CoverageSummary,
   MunicipalityCoverage,
   TownDetail,
+  MepaFiling,
+  CipDocument,
+  TownDashboardStats,
 } from "../types";
 
 // ─── Base configuration ─────────────────────────────────────────────────────
@@ -589,5 +592,40 @@ export async function getNotifications(params?: {
     searchParams.set("acknowledged", String(params.acknowledged));
   const qs = searchParams.toString();
   const res = await fetch(`${API_BASE}/api/notifications${qs ? `?${qs}` : ""}`);
+  return res.json();
+}
+
+// ─── MEPA Filings API ──────────────────────────────────────────────────────
+
+export async function getMepaFilings(
+  townId: string,
+  limit = 50
+): Promise<{ filings: MepaFiling[]; total: number; town_id: string }> {
+  const res = await fetch(
+    `${API_BASE}/api/mepa?town_id=${encodeURIComponent(townId)}&limit=${limit}`
+  );
+  return res.json();
+}
+
+// ─── CIP Documents API ─────────────────────────────────────────────────────
+
+export async function getCipDocuments(
+  townId: string,
+  limit = 50
+): Promise<{ documents: CipDocument[]; total: number; town_id: string }> {
+  const res = await fetch(
+    `${API_BASE}/api/cip?town_id=${encodeURIComponent(townId)}&limit=${limit}`
+  );
+  return res.json();
+}
+
+// ─── Town Dashboard Stats API ──────────────────────────────────────────────
+
+export async function getTownDashboardStats(
+  townId: string
+): Promise<TownDashboardStats> {
+  const res = await fetch(
+    `${API_BASE}/api/town-dashboard?town_id=${encodeURIComponent(townId)}`
+  );
   return res.json();
 }

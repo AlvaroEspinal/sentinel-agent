@@ -433,6 +433,54 @@ export interface ParcelSearchResult {
   style: string | null;
 }
 
+// ─── MEPA Filing ──────────────────────────────────────────────────────────
+export interface MepaFiling {
+  id: string;
+  town_id: string;
+  eea_number: string | null;
+  title: string | null;
+  status: string | null;
+  address: string | null;
+  proponent: string | null;
+  municipality: string | null;
+  source_url: string | null;
+  doc_type: string | null;
+  scraped_at: string | null;
+  created_at: string;
+}
+
+// ─── CIP Document ─────────────────────────────────────────────────────────
+export interface CipDocument {
+  id: string;
+  town_id: string;
+  doc_type: string;
+  board: string | null;
+  title: string;
+  meeting_date: string | null;
+  source_url: string | null;
+  file_url: string | null;
+  content_summary: string | null;
+  keywords: string[];
+  scraped_at: string | null;
+}
+
+// ─── Town Dashboard Stats ─────────────────────────────────────────────────
+export interface TownDashboardStats {
+  town_id: string;
+  town_name: string;
+  county: string | null;
+  population: number | null;
+  center_lat: number | null;
+  center_lon: number | null;
+  total_properties: number;
+  avg_tax_assessment: number;
+  total_permits: number;
+  tax_delinquent_count: number;
+  meeting_minutes_count: number;
+  cip_count: number;
+  mepa_filing_count: number;
+}
+
 // ── Listing Tracking ──
 export type ListingTrackingStatus = "active" | "potential" | "archived";
 

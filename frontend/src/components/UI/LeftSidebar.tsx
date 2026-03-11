@@ -6,9 +6,7 @@ import {
   MapPin,
   Layers,
   FileText,
-  Camera,
   Waves,
-  Activity,
   Droplets,
   TreePine,
   Map,
@@ -16,6 +14,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useStore, MARKETS, MARKET_NAMES } from "../../store/useStore";
+import TownDashboard from "../RealEstate/TownDashboard";
 
 // ─── Toggle Switch ───────────────────────────────────────────────────────────
 const Toggle: React.FC<{ isOn: boolean; onToggle: () => void }> = ({
@@ -107,9 +106,16 @@ const LeftSidebar: React.FC = () => {
   const toggleMepa = useStore((s) => s.toggleMepa);
   const toggleTaxDelinquency = useStore((s) => s.toggleTaxDelinquency);
 
+  // Selected property (for town dashboard)
+  const selectedProperty = useStore((s) => s.selectedProperty);
+
   // Local UI state
   const [dataLayersOpen, setDataLayersOpen] = useState(true);
+  const [townIntelOpen, setTownIntelOpen] = useState(true);
   const [showAddInput, setShowAddInput] = useState(false);
+
+  // Derive townId from selected property city or active market
+  const townId = selectedProperty?.city?.toLowerCase() || activeCity.toLowerCase();
 
   const pois = MARKETS[activeCity] ?? [];
   const permitsDisplayCount = totalPermitsAvailable || permits.length;
@@ -275,7 +281,26 @@ const LeftSidebar: React.FC = () => {
           </div>
         </div>
 
-        {/* ── Section 3: DATA LAYERS (collapsible) ───────────────────────── */}
+        {/* ── Section 3: TOWN INTEL (collapsible) ──────────────────────── */}
+        <SectionHeader
+          title="TOWN INTEL"
+          collapsible
+          collapsed={!townIntelOpen}
+          onToggleCollapse={() => setTownIntelOpen(!townIntelOpen)}
+        />
+        {townIntelOpen && (
+          <div className="px-3 py-2 border-b border-parcl-border">
+            {townId ? (
+              <TownDashboard townId={townId} />
+            ) : (
+              <div className="text-[10px] text-parcl-text-dim text-center py-4">
+                Select a property or market to view town stats
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Section 4: DATA LAYERS (collapsible) ───────────────────────── */}
         <SectionHeader
           title="DATA LAYERS"
           collapsible
