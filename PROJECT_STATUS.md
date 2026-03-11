@@ -1,6 +1,18 @@
 # Parcl Intelligence — Project Status
 
-**Last Updated:** March 11, 2026 (Session 17 — Geocoder Fix + Final Geocoding Run)
+**Last Updated:** March 11, 2026 (Session 18 — Permit-to-Property Linking + Data Quality Plan Complete)
+
+**Session 18 (Permit-to-Property Linking — Agent F Complete):**
+1. **Ran `link_permits_to_properties.py`** — Python script produced 0 new address matches (all easily-matchable permits were already linked from prior runs) and only 71 spatial matches (50m radius too tight).
+2. **Root cause identified** — Nominatim geocodes are typically 68-150m offset from MassGIS parcel centroids. The script's 50m spatial threshold missed most matches. Remaining unlinked permits have addresses that don't exist in properties table (abbreviated differently, incomplete, or no address data at all).
+3. **SQL-based linking approach** — Wrote direct SQL using street name extraction + 200m spatial proximity:
+   - Extract street names via `regexp_replace` (strip house numbers) for same-street matching
+   - Approximate distance: `111320 * SQRT(POWER(lat_diff, 2) + POWER(lon_diff * COS(RADIANS(lat)), 2))`
+   - Pure spatial fallback (100m, no street requirement) for remaining unmatched
+4. **Results: +3,107 new permit-to-property links** — Overall linkage: 65,593 / 104,257 (62.9%). Of geocoded permits: 65,593 / 68,532 (95.7%).
+5. **Top town improvements:** Weston 94.1%→97.8%, Concord 80.0%→86.2%, Sherborn 93.4%→95.8%, Lincoln 74.3%→81.0%.
+6. **Verified SQL views** — `v_property_360` and `v_town_dashboard` confirmed working with new linked data.
+7. **7-Agent Data Quality Plan: 6/7 complete, 1 partial.** Agents A (SQL fixes), B (geocoding), C (properties), E (MEPA), F (linking), G (views) all ✅. Agent D (scraping gaps) partially done (CIP 12/12, tax gaps remain).
 
 **Session 17 (Geocoder Fix + Final Geocoding):**
 1. **Fixed geocoder address cleaning** — Added `_clean_address()` method that strips unit/lot suffixes (#A, Unit 1101, Lot 2), simplifies range addresses (1093-1101 → 1093), removes test markers and OFF suffixes, and detects when state info is already present to avoid doubling.
@@ -56,7 +68,7 @@
 | Table | Rows | Notes |
 |-------|------|-------|
 | properties | 91,983 | MassGIS parcels, all 12 MVP towns |
-| permits | 439,175 | 65.7% geocoded (68.5K of 104K MVP), 98.2% of addressable |
+| permits | 439,175 | 98.2% addressable geocoded, 95.7% geocoded linked to properties |
 | documents | 129,947 | Legacy permit documents |
 | document_locations | 168,754 | Legacy geocoded permits |
 | municipal_documents | 8,001 | CIP, meeting minutes, tax takings |
@@ -65,22 +77,24 @@
 | municipal_overlays | 403 | Wetlands + zoning overlays |
 | towns | 352 | MA municipalities |
 
-### Properties by Town (Post-Session 17 Geocoding)
-| Town | Properties | Permits | Has Address | Geocoded | % of Addressable |
-|------|-----------|---------|-------------|----------|------------------|
-| Weston | 4,062 | 39,387 | 39,376 | 39,115 | 99.3% |
-| Concord | 5,102 | 16,582 | 16,582 | 16,047 | 96.8% |
-| Newton | 23,000 | 12,766 | 1,528 | 1,453 | 95.1% |
-| Lexington | 11,331 | 9,312 | 647 | 644 | 99.5% |
-| Sherborn | 1,878 | 6,364 | 6,348 | 6,119 | 96.4% |
-| Natick | 11,061 | 5,699 | 576 | 525 | 91.1% |
-| Needham | 9,770 | 5,593 | 803 | 792 | 98.6% |
-| Wellesley | 8,000 | 3,586 | 565 | 564 | 99.8% |
-| Lincoln | 1,788 | 2,940 | 2,940 | 2,837 | 96.5% |
-| Wayland | 5,049 | 1,654 | 233 | 233 | 100.0% |
-| Dover | 2,503 | 311 | 145 | 144 | 99.3% |
-| Brookline | 8,439 | 63 | 63 | 59 | 93.7% |
-| **TOTAL** | **91,983** | **104,257** | **69,806** | **68,532** | **98.2%** |
+### Properties by Town (Post-Session 18 Linking)
+| Town | Properties | Permits | Geocoded | Linked | % Linked |
+|------|-----------|---------|----------|--------|----------|
+| Weston | 4,062 | 39,387 | 39,115 | 38,513 | 97.8% |
+| Concord | 5,102 | 16,582 | 16,047 | 14,298 | 86.2% |
+| Newton | 23,000 | 12,766 | 1,453 | 1,407 | 11.0% |
+| Lexington | 11,331 | 9,312 | 644 | 640 | 6.9% |
+| Sherborn | 1,878 | 6,364 | 6,119 | 6,099 | 95.8% |
+| Natick | 11,061 | 5,699 | 525 | 512 | 9.0% |
+| Needham | 9,770 | 5,593 | 792 | 790 | 14.1% |
+| Wellesley | 8,000 | 3,586 | 564 | 536 | 14.9% |
+| Lincoln | 1,788 | 2,940 | 2,837 | 2,381 | 81.0% |
+| Wayland | 5,049 | 1,654 | 233 | 215 | 13.0% |
+| Dover | 2,503 | 311 | 144 | 144 | 46.3% |
+| Brookline | 8,439 | 63 | 59 | 58 | 92.1% |
+| **TOTAL** | **91,983** | **104,257** | **68,532** | **65,593** | **62.9%** |
+
+*Note: Low linkage % in Newton, Lexington, Natick etc. is because most permits in those towns lack address data entirely (ViewpointCloud source), making geocoding and linking impossible without address backfill. Of geocoded permits: 95.7% linked.*
 
 ### Deployment Status
 | Component | Status | URL |
@@ -92,9 +106,9 @@
 ### Next Steps
 1. **Deploy backend** — Run `bash deploy-backend.sh` (Railway interactive login required)
 2. **Set VITE_API_URL** — On Vercel, add env var pointing to Railway backend URL
-3. **Link permits → properties** — Run `link_permits_to_properties.py` (geocoding complete)
-4. **Backfill missing addresses** — Newton (11K), Lexington (8.7K), Natick (5.1K) permits lack addresses in source data
-5. **UI polish** — Property detail views, town dashboards, data quality indicators
+3. **Backfill missing addresses** — Newton (11K), Lexington (8.7K), Natick (5.1K) permits lack addresses in source data (would boost linkage from 62.9% to ~90%+)
+4. **UI polish** — Property detail views, town dashboards, data quality indicators
+5. **Frontend integration** — MEPA tab, CIP tab, tax delinquency markers, overlay layers
 
 ---
 
