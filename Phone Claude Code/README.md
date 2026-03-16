@@ -121,6 +121,17 @@ ON CONFLICT (id) DO UPDATE SET
   active = TRUE;
 ```
 
+### Step 1b: Unzip the Permit Data
+
+The file `permits_all_49_towns.zip` in this folder contains all 686K permits (43MB compressed → 375MB unzipped).
+
+```bash
+# From the repo root
+cd backend/data/scraped
+unzip "../../../Phone Claude Code/permits_all_49_towns.zip"
+# This creates: backend/data/scraped/permits/*.json (46 files)
+```
+
 ### Step 2: Set Environment Variables
 
 Add to your `.env` file:
