@@ -19,6 +19,26 @@ import {
   Hammer,
 } from "lucide-react";
 
+// Cached stats from v_town_dashboard (March 2026) — shown when API is unavailable
+const CACHED_STATS: Record<string, {
+  total_properties: number; total_permits: number; avg_tax_assessment: number;
+  mepa_filing_count: number; meeting_minutes_count: number; cip_count: number;
+  tax_delinquent_count: number; median_home_value: number;
+}> = {
+  newton: { total_properties: 23000, total_permits: 12766, avg_tax_assessment: 1830114, mepa_filing_count: 13, meeting_minutes_count: 2, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1350000 },
+  wellesley: { total_properties: 8000, total_permits: 3586, avg_tax_assessment: 2363620, mepa_filing_count: 5, meeting_minutes_count: 61, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1600000 },
+  weston: { total_properties: 4062, total_permits: 39387, avg_tax_assessment: 2492961, mepa_filing_count: 5, meeting_minutes_count: 71, cip_count: 1, tax_delinquent_count: 0, median_home_value: 2200000 },
+  brookline: { total_properties: 8439, total_permits: 314, avg_tax_assessment: 3232420, mepa_filing_count: 16, meeting_minutes_count: 12, cip_count: 1, tax_delinquent_count: 69, median_home_value: 1100000 },
+  needham: { total_properties: 9770, total_permits: 5593, avg_tax_assessment: 1637287, mepa_filing_count: 10, meeting_minutes_count: 1220, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1050000 },
+  concord: { total_properties: 5102, total_permits: 16582, avg_tax_assessment: 1613735, mepa_filing_count: 17, meeting_minutes_count: 21, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1200000 },
+  lexington: { total_properties: 11331, total_permits: 9312, avg_tax_assessment: 1579565, mepa_filing_count: 11, meeting_minutes_count: 17, cip_count: 1, tax_delinquent_count: 2, median_home_value: 1150000 },
+  dover: { total_properties: 2503, total_permits: 311, avg_tax_assessment: 1536930, mepa_filing_count: 13, meeting_minutes_count: 26, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1600000 },
+  sherborn: { total_properties: 1878, total_permits: 6364, avg_tax_assessment: 1078957, mepa_filing_count: 0, meeting_minutes_count: 159, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1500000 },
+  natick: { total_properties: 11061, total_permits: 5699, avg_tax_assessment: 1002577, mepa_filing_count: 3, meeting_minutes_count: 36, cip_count: 1, tax_delinquent_count: 0, median_home_value: 800000 },
+  wayland: { total_properties: 5049, total_permits: 1654, avg_tax_assessment: 1052222, mepa_filing_count: 3, meeting_minutes_count: 81, cip_count: 1, tax_delinquent_count: 0, median_home_value: 950000 },
+  lincoln: { total_properties: 1788, total_permits: 2940, avg_tax_assessment: 1536728, mepa_filing_count: 21, meeting_minutes_count: 157, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1200000 },
+};
+
 const TownDashboard: React.FC = () => {
   const activeTownId = useStore((s) => s.activeTownId);
   const townDashboardData = useStore((s) => s.townDashboardData);
@@ -44,10 +64,26 @@ const TownDashboard: React.FC = () => {
       } catch (err) {
         console.warn("[TownDashboard] Fetch error:", err);
         if (!cancelled) {
-          // Set minimal placeholder data
+          // Use cached stats as fallback
+          const cached = CACHED_STATS[activeTownId];
+          const townConfig = targetTowns.find((t) => t.id === activeTownId);
           setTownDashboardData({
-            town: { id: activeTownId, name: activeTownId.charAt(0).toUpperCase() + activeTownId.slice(1), county: "", median_home_value: 0, population: 0 },
-            stats: {},
+            town: {
+              id: activeTownId,
+              name: townConfig?.name || activeTownId.charAt(0).toUpperCase() + activeTownId.slice(1),
+              county: townConfig?.county || "",
+              median_home_value: cached?.median_home_value || townConfig?.median_home_value || 0,
+              population: townConfig?.population || 0,
+            },
+            stats: cached ? {
+              total_properties: cached.total_properties,
+              total_permits: cached.total_permits,
+              avg_tax_assessment: cached.avg_tax_assessment,
+              mepa_filing_count: cached.mepa_filing_count,
+              meeting_minutes_count: cached.meeting_minutes_count,
+              cip_count: cached.cip_count,
+              tax_delinquent_count: cached.tax_delinquent_count,
+            } : {},
             recent_sales: [],
             recent_documents: [],
             scrape_jobs: [],

@@ -206,14 +206,14 @@ const LandingPage: React.FC = () => {
             <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-xl p-4">
               <FileText size={16} className="text-blue-400 mb-2" />
               <div className="text-xl font-bold text-white">
-                {platformStats ? fmtNum(platformStats.total_permits) : "104K+"}
+                {platformStats ? fmtNum(platformStats.total_permits) : "104,508"}
               </div>
               <div className="text-slate-400 text-[11px]">Permits Tracked</div>
             </div>
             <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20 rounded-xl p-4">
               <Home size={16} className="text-emerald-400 mb-2" />
               <div className="text-xl font-bold text-white">
-                {platformStats ? fmtNum(platformStats.total_properties) : "92K+"}
+                {platformStats ? fmtNum(platformStats.total_properties) : "91,983"}
               </div>
               <div className="text-slate-400 text-[11px]">Properties</div>
             </div>
@@ -227,14 +227,14 @@ const LandingPage: React.FC = () => {
             <div className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20 rounded-xl p-4">
               <Leaf size={16} className="text-orange-400 mb-2" />
               <div className="text-xl font-bold text-white">
-                {platformStats ? fmtNum(platformStats.total_mepa) : "5.5K+"}
+                {platformStats ? fmtNum(platformStats.total_mepa) : "5,554"}
               </div>
               <div className="text-slate-400 text-[11px]">MEPA Filings</div>
             </div>
             <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-xl p-4">
               <Clock size={16} className="text-amber-400 mb-2" />
               <div className="text-xl font-bold text-white">
-                {platformStats ? fmtNum(platformStats.total_documents) : "1.7K+"}
+                {platformStats ? fmtNum(platformStats.total_documents) : "8,001"}
               </div>
               <div className="text-slate-400 text-[11px]">Municipal Docs</div>
             </div>
