@@ -1144,6 +1144,27 @@ async def get_town_dashboard(request: Request, town_id: str):
         "population": town.population,
     }
 
+    # Enrich with aggregated counts from v_town_dashboard
+    if supabase:
+        try:
+            view_rows = await supabase.fetch(
+                table="v_town_dashboard",
+                select="total_properties,total_permits,tax_delinquent_count,meeting_minutes_count,cip_count,mepa_filing_count,avg_tax_assessment",
+                filters={"town_id": f"eq.{town_id}"},
+                limit=1,
+            )
+            if view_rows:
+                vd = view_rows[0]
+                results["stats"]["total_properties"] = vd.get("total_properties", 0)
+                results["stats"]["total_permits"] = vd.get("total_permits", 0)
+                results["stats"]["tax_delinquent_count"] = vd.get("tax_delinquent_count", 0)
+                results["stats"]["meeting_minutes_count"] = vd.get("meeting_minutes_count", 0)
+                results["stats"]["cip_count"] = vd.get("cip_count", 0)
+                results["stats"]["mepa_filing_count"] = vd.get("mepa_filing_count", 0)
+                results["stats"]["avg_tax_assessment"] = vd.get("avg_tax_assessment", 0)
+        except Exception as e:
+            logger.debug("v_town_dashboard enrichment error for %s: %s", town_id, e)
+
     return results
 
 
@@ -1756,3 +1777,35 @@ async def get_town_dashboard_view(
     except Exception as e:
         logger.error("Error fetching town dashboard for %s: %s", town_id, e)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/platform-stats")
+async def get_platform_stats():
+    """Aggregated platform-wide statistics for the landing page."""
+    supabase = _get("supabase_client")
+    if not supabase or not supabase.is_connected:
+        return {
+            "total_permits": 0, "total_properties": 0, "total_towns": 0,
+            "total_mepa": 0, "total_documents": 0, "geocoded_permits": 0,
+        }
+
+    try:
+        rows = await supabase.fetch(
+            table="v_town_dashboard",
+            select="town_id,total_properties,total_permits,tax_delinquent_count,meeting_minutes_count,cip_count,mepa_filing_count",
+        )
+        totals = {
+            "total_towns": len(rows or []),
+            "total_permits": sum(r.get("total_permits", 0) or 0 for r in (rows or [])),
+            "total_properties": sum(r.get("total_properties", 0) or 0 for r in (rows or [])),
+            "total_mepa": sum(r.get("mepa_filing_count", 0) or 0 for r in (rows or [])),
+            "total_documents": sum((r.get("meeting_minutes_count", 0) or 0) + (r.get("cip_count", 0) or 0) for r in (rows or [])),
+            "total_tax_delinquent": sum(r.get("tax_delinquent_count", 0) or 0 for r in (rows or [])),
+        }
+        return totals
+    except Exception as e:
+        logger.error("Error fetching platform stats: %s", e)
+        return {
+            "total_permits": 0, "total_properties": 0, "total_towns": 0,
+            "total_mepa": 0, "total_documents": 0, "total_tax_delinquent": 0,
+        }

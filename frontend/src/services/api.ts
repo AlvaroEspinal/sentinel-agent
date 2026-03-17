@@ -629,3 +629,17 @@ export async function getTownDashboardStats(
   );
   return res.json();
 }
+
+export interface PlatformStats {
+  total_permits: number;
+  total_properties: number;
+  total_towns: number;
+  total_mepa: number;
+  total_documents: number;
+  total_tax_delinquent: number;
+}
+
+export async function getPlatformStats(): Promise<PlatformStats> {
+  const res = await fetch(`${API_BASE}/api/platform-stats`);
+  return res.json();
+}

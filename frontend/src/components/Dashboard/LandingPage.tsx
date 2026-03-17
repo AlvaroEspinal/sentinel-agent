@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useStore } from "../../store/useStore";
-import { searchParcels, geocodeAddress, getParcelInfo } from "../../services/api";
+import { searchParcels, geocodeAddress, getParcelInfo, getPlatformStats, type PlatformStats } from "../../services/api";
 import TownCard from "../Town/TownCard";
 import {
   Search,
@@ -12,6 +12,11 @@ import {
   Building2,
   Clock,
   DollarSign,
+  Globe2,
+  Database,
+  Leaf,
+  AlertTriangle,
+  Home,
 } from "lucide-react";
 
 const LandingPage: React.FC = () => {
@@ -21,11 +26,18 @@ const LandingPage: React.FC = () => {
   const setActiveView = useStore((s) => s.setActiveView);
   const setParcelSearchResults = useStore((s) => s.setParcelSearchResults);
   const setParcelSearchLoading = useStore((s) => s.setParcelSearchLoading);
+  const setShowMapOverlay = useStore((s) => s.setShowMapOverlay);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState<"address" | "owner">("address");
   const [searchTown, setSearchTown] = useState("newton");
   const [isSearching, setIsSearching] = useState(false);
+  const [platformStats, setPlatformStats] = useState<PlatformStats | null>(null);
+
+  // Fetch platform stats
+  useEffect(() => {
+    getPlatformStats().then(setPlatformStats).catch(() => {});
+  }, []);
 
   const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) return;
@@ -78,6 +90,11 @@ const LandingPage: React.FC = () => {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleSearch();
+  };
+
+  const fmtNum = (n: number | undefined) => {
+    if (!n) return "0";
+    return n.toLocaleString();
   };
 
   // Static town list fallback
@@ -173,6 +190,64 @@ const LandingPage: React.FC = () => {
                 {isSearching ? "Searching..." : "Search"}
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Platform Data Stats */}
+        <div className="mb-10">
+          <div className="flex items-center gap-2 mb-4">
+            <Database size={16} className="text-blue-400" />
+            <h2 className="text-sm font-semibold text-white uppercase tracking-wider">
+              Platform Data
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-xl p-4">
+              <FileText size={16} className="text-blue-400 mb-2" />
+              <div className="text-xl font-bold text-white">
+                {platformStats ? fmtNum(platformStats.total_permits) : "104K+"}
+              </div>
+              <div className="text-slate-400 text-[11px]">Permits Tracked</div>
+            </div>
+            <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20 rounded-xl p-4">
+              <Home size={16} className="text-emerald-400 mb-2" />
+              <div className="text-xl font-bold text-white">
+                {platformStats ? fmtNum(platformStats.total_properties) : "92K+"}
+              </div>
+              <div className="text-slate-400 text-[11px]">Properties</div>
+            </div>
+            <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20 rounded-xl p-4">
+              <MapPin size={16} className="text-purple-400 mb-2" />
+              <div className="text-xl font-bold text-white">
+                {platformStats ? fmtNum(platformStats.total_towns) : "12"}
+              </div>
+              <div className="text-slate-400 text-[11px]">Towns Monitored</div>
+            </div>
+            <div className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20 rounded-xl p-4">
+              <Leaf size={16} className="text-orange-400 mb-2" />
+              <div className="text-xl font-bold text-white">
+                {platformStats ? fmtNum(platformStats.total_mepa) : "5.5K+"}
+              </div>
+              <div className="text-slate-400 text-[11px]">MEPA Filings</div>
+            </div>
+            <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-xl p-4">
+              <Clock size={16} className="text-amber-400 mb-2" />
+              <div className="text-xl font-bold text-white">
+                {platformStats ? fmtNum(platformStats.total_documents) : "1.7K+"}
+              </div>
+              <div className="text-slate-400 text-[11px]">Municipal Docs</div>
+            </div>
+            <button
+              onClick={() => setShowMapOverlay(true)}
+              className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 border border-cyan-500/20 hover:border-cyan-400/40 rounded-xl p-4 text-left transition-colors group"
+            >
+              <Globe2 size={16} className="text-cyan-400 mb-2 group-hover:scale-110 transition-transform" />
+              <div className="text-sm font-bold text-white group-hover:text-cyan-300">
+                Open Map
+              </div>
+              <div className="text-slate-400 text-[11px]">Interactive Globe</div>
+            </button>
           </div>
         </div>
 

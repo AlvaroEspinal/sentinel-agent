@@ -17,6 +17,8 @@ services:
         sync: false
       - key: FIRECRAWL_API_KEY
         sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
       - key: FRONTEND_URL
         value: https://sentinel-agent-alpha.vercel.app
       - key: NOMINATIM_USER_AGENT

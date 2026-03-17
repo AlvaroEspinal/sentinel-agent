@@ -138,27 +138,67 @@ const TownDashboard: React.FC = () => {
           <div className="bg-slate-800/60 border border-slate-700/40 rounded-xl p-4">
             <Home size={16} className="text-blue-400 mb-2" />
             <div className="text-lg font-bold text-white">
-              {data?.stats && typeof data.stats === "object" && "parcel_count" in data.stats
-                ? (data.stats.parcel_count as number).toLocaleString()
-                : "---"}
+              {data?.stats && typeof data.stats === "object" && "total_properties" in data.stats
+                ? (data.stats.total_properties as number).toLocaleString()
+                : data?.stats && "parcel_count" in (data.stats as Record<string, unknown>)
+                  ? ((data.stats as Record<string, unknown>).parcel_count as number).toLocaleString()
+                  : "---"}
             </div>
-            <div className="text-slate-500 text-xs">Total Parcels</div>
+            <div className="text-slate-500 text-xs">Properties</div>
           </div>
           <div className="bg-slate-800/60 border border-slate-700/40 rounded-xl p-4">
-            <TrendingUp size={16} className="text-amber-400 mb-2" />
+            <Hammer size={16} className="text-amber-400 mb-2" />
+            <div className="text-lg font-bold text-white">
+              {data?.stats && typeof data.stats === "object" && "total_permits" in data.stats
+                ? (data.stats.total_permits as number).toLocaleString()
+                : "---"}
+            </div>
+            <div className="text-slate-500 text-xs">Total Permits</div>
+          </div>
+          <div className="bg-slate-800/60 border border-slate-700/40 rounded-xl p-4">
+            <TrendingUp size={16} className="text-emerald-400 mb-2" />
             <div className="text-lg font-bold text-white">
               {data?.recent_sales?.length || 0}
             </div>
             <div className="text-slate-500 text-xs">Recent Sales (90d)</div>
           </div>
-          <div className="bg-slate-800/60 border border-slate-700/40 rounded-xl p-4">
-            <FileText size={16} className="text-purple-400 mb-2" />
-            <div className="text-lg font-bold text-white">
-              {data?.recent_documents?.length || 0}
-            </div>
-            <div className="text-slate-500 text-xs">Documents Scraped</div>
-          </div>
         </div>
+
+        {/* Secondary Stats Row */}
+        {data?.stats && typeof data.stats === "object" && "mepa_filing_count" in data.stats && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+            <div className="bg-slate-800/40 border border-slate-700/30 rounded-lg p-3">
+              <div className="text-sm font-semibold text-white">
+                {((data.stats as Record<string, unknown>).mepa_filing_count as number || 0).toLocaleString()}
+              </div>
+              <div className="text-slate-500 text-[11px]">MEPA Filings</div>
+            </div>
+            <div className="bg-slate-800/40 border border-slate-700/30 rounded-lg p-3">
+              <div className="text-sm font-semibold text-white">
+                {((data.stats as Record<string, unknown>).meeting_minutes_count as number || 0).toLocaleString()}
+              </div>
+              <div className="text-slate-500 text-[11px]">Meeting Minutes</div>
+            </div>
+            <div className="bg-slate-800/40 border border-slate-700/30 rounded-lg p-3">
+              <div className="text-sm font-semibold text-white">
+                {((data.stats as Record<string, unknown>).cip_count as number || 0).toLocaleString()}
+              </div>
+              <div className="text-slate-500 text-[11px]">CIP Documents</div>
+            </div>
+            <div className="bg-slate-800/40 border border-slate-700/30 rounded-lg p-3">
+              <div className="text-sm font-semibold text-white">
+                {((data.stats as Record<string, unknown>).tax_delinquent_count as number || 0).toLocaleString()}
+              </div>
+              <div className="text-slate-500 text-[11px]">Tax Delinquent</div>
+            </div>
+            <div className="bg-slate-800/40 border border-slate-700/30 rounded-lg p-3">
+              <div className="text-sm font-semibold text-white">
+                {formatPrice((data.stats as Record<string, unknown>).avg_tax_assessment as number)}
+              </div>
+              <div className="text-slate-500 text-[11px]">Avg Assessment</div>
+            </div>
+          </div>
+        )}
 
         {/* Scraped Permits */}
         <div className="mb-8">
