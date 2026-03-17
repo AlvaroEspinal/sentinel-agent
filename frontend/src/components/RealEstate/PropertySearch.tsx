@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { useStore } from "../../store/useStore";
-import { searchParcels, geocodeAddress } from "../../services/api";
+import { searchParcels, geocodeAddress, getParcelInfo } from "../../services/api";
 import {
   Search,
   ArrowLeft,
@@ -23,7 +23,7 @@ const PropertySearch: React.FC = () => {
   const targetTowns = useStore((s) => s.targetTowns);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchType, setSearchType] = useState<"owner" | "loc_id">("owner");
+  const [searchType, setSearchType] = useState<"address" | "owner" | "loc_id">("address");
   const [searchTown, setSearchTown] = useState("newton");
 
   const towns = targetTowns.length > 0
@@ -48,12 +48,27 @@ const PropertySearch: React.FC = () => {
     setParcelSearchLoading(true);
 
     try {
-      const result = await searchParcels(
-        searchType === "loc_id"
-          ? { loc_id: searchQuery.trim() }
-          : { owner: searchQuery.trim(), town: searchTown, limit: 25 }
-      );
-      setParcelSearchResults(result.parcels as any);
+      if (searchType === "address") {
+        // Geocode address → fetch parcel at that location
+        const geo = await geocodeAddress(searchQuery.trim());
+        if (geo.lat && geo.lon) {
+          const parcel = await getParcelInfo(geo.lat, geo.lon);
+          if (parcel && parcel.loc_id) {
+            setParcelSearchResults([parcel] as any);
+          } else {
+            setParcelSearchResults([]);
+          }
+        } else {
+          setParcelSearchResults([]);
+        }
+      } else {
+        const result = await searchParcels(
+          searchType === "loc_id"
+            ? { loc_id: searchQuery.trim() }
+            : { owner: searchQuery.trim(), town: searchTown, limit: 25 }
+        );
+        setParcelSearchResults(result.parcels as any);
+      }
     } catch (err) {
       console.warn("[Search] Error:", err);
     } finally {
@@ -89,6 +104,17 @@ const PropertySearch: React.FC = () => {
         {/* Search Controls */}
         <div className="bg-slate-800/70 border border-slate-700/50 rounded-xl p-4 mb-6">
           <div className="flex gap-2 mb-3">
+            <button
+              onClick={() => setSearchType("address")}
+              className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${
+                searchType === "address"
+                  ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                  : "text-slate-400 hover:text-white border border-transparent"
+              }`}
+            >
+              <Home size={12} className="inline mr-1" />
+              Address
+            </button>
             <button
               onClick={() => setSearchType("owner")}
               className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${
@@ -138,7 +164,9 @@ const PropertySearch: React.FC = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={
-                  searchType === "owner"
+                  searchType === "address"
+                    ? "Enter address (e.g., 123 Main St, Newton, MA)..."
+                    : searchType === "owner"
                     ? "Enter owner name (e.g., Smith, Johnson Trust)..."
                     : "Enter LOC_ID (e.g., M_123456_789)..."
                 }
@@ -228,7 +256,7 @@ const PropertySearch: React.FC = () => {
             <Search size={32} className="mx-auto text-slate-600 mb-3" />
             <p className="text-slate-400 text-sm">Search for properties</p>
             <p className="text-slate-500 text-xs mt-1">
-              Search by owner name across all 12 target towns, or by parcel ID
+              Search by address, owner name, or parcel ID across all 12 target towns
             </p>
           </div>
         )}

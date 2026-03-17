@@ -234,7 +234,7 @@ const LandingPage: React.FC = () => {
             <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-xl p-4">
               <Clock size={16} className="text-amber-400 mb-2" />
               <div className="text-xl font-bold text-white">
-                {platformStats ? fmtNum(platformStats.total_documents) : "8,001"}
+                {platformStats ? fmtNum(platformStats.total_documents) : "8,024"}
               </div>
               <div className="text-slate-400 text-[11px]">Municipal Docs</div>
             </div>

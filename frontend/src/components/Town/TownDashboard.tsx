@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useStore } from "../../store/useStore";
-import { getTownDashboard, getScrapedPermitsByTown, getTownPermitBreakdown } from "../../services/api";
+import { getTownDashboard, getScrapedPermitsByTown, getTownPermitBreakdown, getTownDocuments } from "../../services/api";
 import type { PermitBreakdownResponse } from "../../services/api";
 import {
   ArrowLeft,
@@ -25,18 +25,18 @@ const CACHED_STATS: Record<string, {
   mepa_filing_count: number; meeting_minutes_count: number; cip_count: number;
   tax_delinquent_count: number; median_home_value: number;
 }> = {
-  newton: { total_properties: 23000, total_permits: 12766, avg_tax_assessment: 1830114, mepa_filing_count: 13, meeting_minutes_count: 2, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1350000 },
-  wellesley: { total_properties: 8000, total_permits: 3586, avg_tax_assessment: 2363620, mepa_filing_count: 5, meeting_minutes_count: 61, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1600000 },
-  weston: { total_properties: 4062, total_permits: 39387, avg_tax_assessment: 2492961, mepa_filing_count: 5, meeting_minutes_count: 71, cip_count: 1, tax_delinquent_count: 0, median_home_value: 2200000 },
+  newton: { total_properties: 23000, total_permits: 12766, avg_tax_assessment: 1830114, mepa_filing_count: 13, meeting_minutes_count: 3, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1350000 },
+  wellesley: { total_properties: 8000, total_permits: 3586, avg_tax_assessment: 2363620, mepa_filing_count: 5, meeting_minutes_count: 64, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1600000 },
+  weston: { total_properties: 4062, total_permits: 39387, avg_tax_assessment: 2492961, mepa_filing_count: 5, meeting_minutes_count: 72, cip_count: 1, tax_delinquent_count: 0, median_home_value: 2200000 },
   brookline: { total_properties: 8439, total_permits: 314, avg_tax_assessment: 3232420, mepa_filing_count: 16, meeting_minutes_count: 12, cip_count: 1, tax_delinquent_count: 69, median_home_value: 1100000 },
-  needham: { total_properties: 9770, total_permits: 5593, avg_tax_assessment: 1637287, mepa_filing_count: 10, meeting_minutes_count: 1220, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1050000 },
+  needham: { total_properties: 9770, total_permits: 5593, avg_tax_assessment: 1637287, mepa_filing_count: 10, meeting_minutes_count: 1224, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1050000 },
   concord: { total_properties: 5102, total_permits: 16582, avg_tax_assessment: 1613735, mepa_filing_count: 17, meeting_minutes_count: 21, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1200000 },
-  lexington: { total_properties: 11331, total_permits: 9312, avg_tax_assessment: 1579565, mepa_filing_count: 11, meeting_minutes_count: 17, cip_count: 1, tax_delinquent_count: 2, median_home_value: 1150000 },
-  dover: { total_properties: 2503, total_permits: 311, avg_tax_assessment: 1536930, mepa_filing_count: 13, meeting_minutes_count: 26, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1600000 },
-  sherborn: { total_properties: 1878, total_permits: 6364, avg_tax_assessment: 1078957, mepa_filing_count: 0, meeting_minutes_count: 159, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1500000 },
-  natick: { total_properties: 11061, total_permits: 5699, avg_tax_assessment: 1002577, mepa_filing_count: 3, meeting_minutes_count: 36, cip_count: 1, tax_delinquent_count: 0, median_home_value: 800000 },
-  wayland: { total_properties: 5049, total_permits: 1654, avg_tax_assessment: 1052222, mepa_filing_count: 3, meeting_minutes_count: 81, cip_count: 1, tax_delinquent_count: 0, median_home_value: 950000 },
-  lincoln: { total_properties: 1788, total_permits: 2940, avg_tax_assessment: 1536728, mepa_filing_count: 21, meeting_minutes_count: 157, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1200000 },
+  lexington: { total_properties: 11331, total_permits: 9312, avg_tax_assessment: 1579565, mepa_filing_count: 11, meeting_minutes_count: 20, cip_count: 1, tax_delinquent_count: 2, median_home_value: 1150000 },
+  dover: { total_properties: 2503, total_permits: 311, avg_tax_assessment: 1536930, mepa_filing_count: 13, meeting_minutes_count: 34, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1600000 },
+  sherborn: { total_properties: 1878, total_permits: 6364, avg_tax_assessment: 1078957, mepa_filing_count: 0, meeting_minutes_count: 160, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1500000 },
+  natick: { total_properties: 11061, total_permits: 5699, avg_tax_assessment: 1002577, mepa_filing_count: 3, meeting_minutes_count: 38, cip_count: 1, tax_delinquent_count: 0, median_home_value: 800000 },
+  wayland: { total_properties: 5049, total_permits: 1654, avg_tax_assessment: 1052222, mepa_filing_count: 3, meeting_minutes_count: 101, cip_count: 1, tax_delinquent_count: 0, median_home_value: 950000 },
+  lincoln: { total_properties: 1788, total_permits: 2940, avg_tax_assessment: 1536728, mepa_filing_count: 21, meeting_minutes_count: 160, cip_count: 1, tax_delinquent_count: 0, median_home_value: 1200000 },
 };
 
 const TownDashboard: React.FC = () => {
@@ -134,6 +134,49 @@ const TownDashboard: React.FC = () => {
       });
     return () => { cancelled = true; };
   }, [activeTownId]);
+
+  // Fetch municipal documents with pagination
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [docsTotal, setDocsTotal] = useState(0);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docsFilter, setDocsFilter] = useState<string>("all");
+  const [docsOffset, setDocsOffset] = useState(0);
+  const DOCS_PER_PAGE = 20;
+
+  useEffect(() => {
+    if (!activeTownId) return;
+    let cancelled = false;
+    setDocsLoading(true);
+    setDocsOffset(0);
+    const params: { doc_type?: string; limit: number; offset: number } = { limit: DOCS_PER_PAGE, offset: 0 };
+    if (docsFilter !== "all") params.doc_type = docsFilter;
+    getTownDocuments(activeTownId, params)
+      .then((result) => {
+        if (!cancelled) {
+          setDocuments(result.documents || []);
+          setDocsTotal(result.total || 0);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) { setDocuments([]); setDocsTotal(0); }
+      })
+      .finally(() => { if (!cancelled) setDocsLoading(false); });
+    return () => { cancelled = true; };
+  }, [activeTownId, docsFilter]);
+
+  const loadMoreDocs = async () => {
+    if (!activeTownId) return;
+    const newOffset = docsOffset + DOCS_PER_PAGE;
+    setDocsLoading(true);
+    try {
+      const params: { doc_type?: string; limit: number; offset: number } = { limit: DOCS_PER_PAGE, offset: newOffset };
+      if (docsFilter !== "all") params.doc_type = docsFilter;
+      const result = await getTownDocuments(activeTownId, params);
+      setDocuments((prev) => [...prev, ...(result.documents || [])]);
+      setDocsOffset(newOffset);
+    } catch { /* ignore */ }
+    setDocsLoading(false);
+  };
 
   // Find town config for extra info
   const townConfig = targetTowns.find((t) => t.id === activeTownId);
@@ -460,29 +503,73 @@ const TownDashboard: React.FC = () => {
             )}
           </div>
 
-          {/* Recent Documents */}
+          {/* Municipal Documents Browser */}
           <div>
             <h2 className="text-sm font-semibold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
               <FileText size={14} className="text-purple-400" />
               Municipal Documents
+              {docsTotal > 0 && (
+                <span className="text-xs text-slate-500 font-normal normal-case ml-1">
+                  ({docsTotal.toLocaleString()})
+                </span>
+              )}
             </h2>
 
-            {data?.recent_documents && data.recent_documents.length > 0 ? (
+            {/* Doc Type Filter */}
+            <div className="flex gap-1.5 mb-3">
+              {[
+                { value: "all", label: "All" },
+                { value: "meeting_minutes", label: "Meeting Minutes" },
+                { value: "capital_improvement", label: "CIP" },
+              ].map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setDocsFilter(f.value)}
+                  className={`px-2.5 py-1 text-[10px] rounded-lg font-medium transition-colors ${
+                    docsFilter === f.value
+                      ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                      : "text-slate-500 hover:text-white border border-transparent"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {documents.length > 0 ? (
               <div className="space-y-2">
-                {data.recent_documents.slice(0, 10).map((doc: any, i: number) => (
+                {documents.map((doc: any, i: number) => (
                   <div
                     key={doc.id || i}
                     className="bg-slate-800/40 border border-slate-700/30 rounded-lg px-4 py-3"
                   >
                     <div className="flex items-start gap-2">
                       <Calendar size={12} className="text-slate-500 mt-0.5 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-white text-sm font-medium">
-                          {doc.title || "Untitled Document"}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="text-white text-sm font-medium">
+                            {doc.title || "Untitled Document"}
+                          </div>
+                          {(doc.source_url || doc.file_url) && (
+                            <a
+                              href={doc.file_url || doc.source_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-400 hover:text-blue-300 flex-shrink-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink size={12} />
+                            </a>
+                          )}
                         </div>
                         <div className="text-slate-500 text-xs mt-0.5">
                           {doc.board && <span className="text-purple-400/80">{doc.board}</span>}
                           {doc.meeting_date && <span> &middot; {doc.meeting_date}</span>}
+                          {doc.doc_type && (
+                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400">
+                              {doc.doc_type === "meeting_minutes" ? "Minutes" : doc.doc_type === "capital_improvement" ? "CIP" : doc.doc_type}
+                            </span>
+                          )}
                         </div>
                         {doc.content_summary && (
                           <p className="text-slate-400 text-xs mt-1.5 line-clamp-2">
@@ -501,10 +588,41 @@ const TownDashboard: React.FC = () => {
                             ))}
                           </div>
                         )}
+                        {doc.mentions && Array.isArray(doc.mentions) && doc.mentions.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {doc.mentions.slice(0, 3).map((m: string, mi: number) => (
+                              <span
+                                key={mi}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/80"
+                              >
+                                {m}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                 ))}
+                {/* Load More */}
+                {documents.length < docsTotal && (
+                  <button
+                    onClick={loadMoreDocs}
+                    disabled={docsLoading}
+                    className="w-full py-2 text-xs text-blue-400 hover:text-blue-300 disabled:text-slate-600 transition-colors"
+                  >
+                    {docsLoading ? (
+                      <Loader2 size={14} className="mx-auto animate-spin" />
+                    ) : (
+                      `Load more (${documents.length} of ${docsTotal.toLocaleString()})`
+                    )}
+                  </button>
+                )}
+              </div>
+            ) : docsLoading ? (
+              <div className="text-center py-6">
+                <Loader2 size={20} className="mx-auto text-purple-400 animate-spin mb-2" />
+                <p className="text-slate-500 text-xs">Loading documents...</p>
               </div>
             ) : (
               <div className="bg-slate-800/20 border border-slate-700/20 rounded-xl p-6 text-center">
