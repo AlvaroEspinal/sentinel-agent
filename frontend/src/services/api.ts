@@ -643,3 +643,52 @@ export async function getPlatformStats(): Promise<PlatformStats> {
   const res = await fetch(`${API_BASE}/api/platform-stats`);
   return res.json();
 }
+
+// ─── Permit Breakdown API ──────────────────────────────────────────────────
+
+export interface PermitTypeBreakdown {
+  type: string;
+  count: number;
+  pct: number;
+}
+
+export interface DataQuality {
+  total_permits: number;
+  has_address: number;
+  has_geocode: number;
+  has_date: number;
+  address_pct: number;
+  geocode_pct: number;
+  date_pct: number;
+}
+
+export interface PermitBreakdownResponse {
+  town_id: string;
+  permit_types: PermitTypeBreakdown[];
+  statuses: PermitTypeBreakdown[];
+  data_quality: DataQuality;
+}
+
+export async function getTownPermitBreakdown(
+  townId: string
+): Promise<PermitBreakdownResponse> {
+  const res = await fetch(`${API_BASE}/api/towns/${townId}/permit-breakdown`);
+  return res.json();
+}
+
+// ─── Data Completeness API ─────────────────────────────────────────────────
+
+export interface TownCompleteness {
+  town_id: string;
+  town_name: string;
+  total_permits: number;
+  total_properties: number;
+  mepa_filings: number;
+  documents: number;
+  completeness_score: number;
+}
+
+export async function getDataCompleteness(): Promise<{ towns: TownCompleteness[] }> {
+  const res = await fetch(`${API_BASE}/api/data-completeness`);
+  return res.json();
+}

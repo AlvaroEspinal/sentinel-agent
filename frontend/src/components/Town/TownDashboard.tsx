@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useStore } from "../../store/useStore";
-import { getTownDashboard, getScrapedPermitsByTown } from "../../services/api";
+import { getTownDashboard, getScrapedPermitsByTown, getTownPermitBreakdown } from "../../services/api";
+import type { PermitBreakdownResponse } from "../../services/api";
 import {
   ArrowLeft,
   Building2,
@@ -78,6 +79,22 @@ const TownDashboard: React.FC = () => {
       })
       .finally(() => {
         if (!cancelled) setPermitsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [activeTownId]);
+
+  // Fetch permit breakdown
+  const [permitBreakdown, setPermitBreakdown] = useState<PermitBreakdownResponse | null>(null);
+
+  useEffect(() => {
+    if (!activeTownId) return;
+    let cancelled = false;
+    getTownPermitBreakdown(activeTownId)
+      .then((result) => {
+        if (!cancelled) setPermitBreakdown(result);
+      })
+      .catch(() => {
+        if (!cancelled) setPermitBreakdown(null);
       });
     return () => { cancelled = true; };
   }, [activeTownId]);
@@ -196,6 +213,73 @@ const TownDashboard: React.FC = () => {
                 {formatPrice((data.stats as Record<string, unknown>).avg_tax_assessment as number)}
               </div>
               <div className="text-slate-500 text-[11px]">Avg Assessment</div>
+            </div>
+          </div>
+        )}
+
+        {/* Permit Type Breakdown & Data Quality */}
+        {permitBreakdown && permitBreakdown.permit_types.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Permit Types */}
+            <div>
+              <h2 className="text-sm font-semibold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+                <Building2 size={14} className="text-blue-400" />
+                Permit Types
+              </h2>
+              <div className="bg-slate-800/30 border border-slate-700/20 rounded-xl p-4 space-y-2">
+                {permitBreakdown.permit_types.slice(0, 8).map((pt) => (
+                  <div key={pt.type} className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-slate-300 truncate">{pt.type}</span>
+                        <span className="text-xs text-slate-500 ml-2">{pt.count.toLocaleString()}</span>
+                      </div>
+                      <div className="h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-blue-500/60 rounded-full"
+                          style={{ width: `${Math.min(pt.pct, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-slate-500 w-10 text-right">{pt.pct}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Data Quality */}
+            <div>
+              <h2 className="text-sm font-semibold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+                <MapPin size={14} className="text-emerald-400" />
+                Data Quality
+              </h2>
+              <div className="bg-slate-800/30 border border-slate-700/20 rounded-xl p-4 space-y-4">
+                {[
+                  { label: "Has Address", value: permitBreakdown.data_quality.has_address, pct: permitBreakdown.data_quality.address_pct, color: "bg-emerald-500/60" },
+                  { label: "Geocoded", value: permitBreakdown.data_quality.has_geocode, pct: permitBreakdown.data_quality.geocode_pct, color: "bg-blue-500/60" },
+                  { label: "Has Date", value: permitBreakdown.data_quality.has_date, pct: permitBreakdown.data_quality.date_pct, color: "bg-purple-500/60" },
+                ].map((metric) => (
+                  <div key={metric.label}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-slate-300">{metric.label}</span>
+                      <span className="text-xs text-slate-500">
+                        {metric.value.toLocaleString()} / {permitBreakdown.data_quality.total_permits.toLocaleString()} ({metric.pct}%)
+                      </span>
+                    </div>
+                    <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${metric.color} rounded-full transition-all`}
+                        style={{ width: `${Math.min(metric.pct, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+                <div className="pt-2 border-t border-slate-700/30">
+                  <div className="text-xs text-slate-500">
+                    Total: <span className="text-white font-medium">{permitBreakdown.data_quality.total_permits.toLocaleString()}</span> permits tracked
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}

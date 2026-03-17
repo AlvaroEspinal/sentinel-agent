@@ -1809,3 +1809,139 @@ async def get_platform_stats():
             "total_permits": 0, "total_properties": 0, "total_towns": 0,
             "total_mepa": 0, "total_documents": 0, "total_tax_delinquent": 0,
         }
+
+
+# ──────────────────────────────────────────────
+# Town Permit Breakdown & Data Quality
+# ──────────────────────────────────────────────
+
+@router.get("/towns/{town_id}/permit-breakdown")
+async def get_town_permit_breakdown(town_id: str):
+    """Permit type breakdown and data quality metrics for a town."""
+    supabase = _get("supabase_client")
+    if not supabase or not supabase.is_connected:
+        return {"town_id": town_id, "permit_types": [], "data_quality": {}}
+
+    try:
+        # Fetch all permits for this town (select only needed fields)
+        permits = await supabase.fetch(
+            table="permits",
+            select="permit_type,permit_status,address,latitude,longitude,filed_date",
+            filters={"town_id": f"eq.{town_id}"},
+            limit=50000,
+        )
+        if not permits:
+            return {"town_id": town_id, "permit_types": [], "data_quality": {}}
+
+        total = len(permits)
+
+        # Permit type breakdown
+        type_counts: dict[str, int] = {}
+        status_counts: dict[str, int] = {}
+        has_address = 0
+        has_geocode = 0
+        has_date = 0
+
+        for p in permits:
+            pt = p.get("permit_type") or "Unknown"
+            ps = p.get("permit_status") or "Unknown"
+            type_counts[pt] = type_counts.get(pt, 0) + 1
+            status_counts[ps] = status_counts.get(ps, 0) + 1
+
+            addr = p.get("address") or ""
+            if addr.strip():
+                has_address += 1
+            lat = p.get("latitude")
+            lon = p.get("longitude")
+            if lat and lon and lat != 0 and lon != 0:
+                has_geocode += 1
+            if p.get("filed_date"):
+                has_date += 1
+
+        # Sort by count descending
+        permit_types = [
+            {"type": k, "count": v, "pct": round(v / total * 100, 1)}
+            for k, v in sorted(type_counts.items(), key=lambda x: -x[1])
+        ]
+        statuses = [
+            {"status": k, "count": v, "pct": round(v / total * 100, 1)}
+            for k, v in sorted(status_counts.items(), key=lambda x: -x[1])
+        ]
+
+        data_quality = {
+            "total_permits": total,
+            "has_address": has_address,
+            "has_geocode": has_geocode,
+            "has_date": has_date,
+            "address_pct": round(has_address / total * 100, 1) if total else 0,
+            "geocode_pct": round(has_geocode / total * 100, 1) if total else 0,
+            "date_pct": round(has_date / total * 100, 1) if total else 0,
+        }
+
+        return {
+            "town_id": town_id,
+            "permit_types": permit_types[:20],
+            "statuses": statuses[:15],
+            "data_quality": data_quality,
+        }
+    except Exception as e:
+        logger.error("Permit breakdown error for %s: %s", town_id, e)
+        return {"town_id": town_id, "permit_types": [], "data_quality": {}}
+
+
+@router.get("/data-completeness")
+async def get_data_completeness():
+    """Data completeness overview for all MVP towns."""
+    supabase = _get("supabase_client")
+    if not supabase or not supabase.is_connected:
+        return {"towns": []}
+
+    try:
+        # Get dashboard view data
+        rows = await supabase.fetch(
+            table="v_town_dashboard",
+            select="town_id,town_name,total_properties,total_permits,mepa_filing_count,meeting_minutes_count,cip_count,tax_delinquent_count",
+        )
+        if not rows:
+            return {"towns": []}
+
+        towns = []
+        for r in rows:
+            tid = r.get("town_id", "")
+            total_p = r.get("total_permits", 0) or 0
+            props = r.get("total_properties", 0) or 0
+            mepa = r.get("mepa_filing_count", 0) or 0
+            docs = (r.get("meeting_minutes_count", 0) or 0) + (r.get("cip_count", 0) or 0)
+
+            # Completeness score: weighted average of data availability
+            scores = []
+            if total_p > 0:
+                scores.append(min(total_p / 1000, 1.0) * 25)  # permits (25%)
+            if props > 0:
+                scores.append(min(props / 500, 1.0) * 25)  # properties (25%)
+            if mepa > 0:
+                scores.append(25)  # MEPA (25%)
+            else:
+                scores.append(0)
+            if docs > 0:
+                scores.append(min(docs / 10, 1.0) * 25)  # documents (25%)
+            else:
+                scores.append(0)
+
+            completeness = round(sum(scores), 1)
+
+            towns.append({
+                "town_id": tid,
+                "town_name": r.get("town_name", tid),
+                "total_permits": total_p,
+                "total_properties": props,
+                "mepa_filings": mepa,
+                "documents": docs,
+                "completeness_score": completeness,
+            })
+
+        towns.sort(key=lambda x: -x["completeness_score"])
+        return {"towns": towns}
+    except Exception as e:
+        logger.error("Data completeness error: %s", e)
+        return {"towns": []}
