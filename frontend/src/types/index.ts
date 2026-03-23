@@ -1,4 +1,4 @@
-// ─── Parcl Intelligence — Type Definitions ─────────────────────────────────
+// ─── Municipal Intelligence System — Type Definitions ──────────────────────
 // Clean real-estate + geospatial types. Hedge fund types removed.
 
 // ─── Alert / Finding Severity ──────────────────────────────────────────────

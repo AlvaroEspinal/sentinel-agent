@@ -147,7 +147,7 @@ const TownDashboard: React.FC<{ townId: string }> = ({ townId }) => {
       </div>
 
       <div className="text-[8px] text-parcl-text-muted mt-1">
-        Source: Parcl Intelligence &middot; v_town_dashboard
+        Source: Municipal Intelligence System &middot; v_town_dashboard
       </div>
     </div>
   );

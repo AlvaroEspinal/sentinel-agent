@@ -46,10 +46,10 @@ const TopBar: React.FC = () => {
         <div className="flex items-center gap-3 min-w-[200px]">
           <div className="flex items-center gap-1.5 select-none">
             <span className="text-sm font-bold tracking-wider uppercase text-parcl-accent text-glow-blue">
-              PARCL
+              MUNICIPAL
             </span>
             <span className="text-xs tracking-wider uppercase text-parcl-text-muted">
-              INTELLIGENCE
+              INTELLIGENCE SYSTEM
             </span>
           </div>
 

@@ -26,7 +26,7 @@ const NoTokenFallback: React.FC = () => (
       />
       <div className="absolute inset-0 flex items-center justify-center flex-col">
         <div className="text-blue-400/80 font-mono text-xs tracking-[0.3em] uppercase">
-          Parcl Intelligence
+          Municipal Intelligence System
         </div>
         <div className="text-blue-300/50 font-mono text-[10px] mt-2 tracking-wider">
           REAL ESTATE INTELLIGENCE

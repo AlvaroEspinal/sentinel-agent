@@ -117,7 +117,7 @@ const LandingPage: React.FC = () => {
         {/* Hero Search Section */}
         <div className="mb-10">
           <h1 className="text-2xl font-bold text-white mb-1">
-            Parcl Intelligence
+            Municipal Intelligence System
           </h1>
           <p className="text-slate-400 text-sm mb-6">
             Real estate data intelligence for affluent Massachusetts communities

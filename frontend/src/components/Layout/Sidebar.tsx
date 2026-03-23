@@ -35,10 +35,10 @@ const Sidebar: React.FC = () => {
           </div>
           <div>
             <div className="text-sm font-semibold text-white tracking-wide group-hover:text-blue-400 transition-colors">
-              PARCL
+              MIS
             </div>
             <div className="text-[10px] text-slate-400 -mt-0.5 tracking-wider">
-              INTELLIGENCE
+              MUNICIPAL INTEL
             </div>
           </div>
         </button>
