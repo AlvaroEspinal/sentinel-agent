@@ -8,7 +8,7 @@ Real estate data intelligence platform for affluent Massachusetts communities. C
 
 - **3D Globe** — CesiumJS-powered interactive map with parcel boundaries, flood zone overlays, and permit pin clustering
 - **Property Analytics** — Parcel data, comparable sales, flood zones, zoning, ownership/deeds via MassGIS & FEMA
-- **Permit Tracking** — 125K+ building permits across MA municipalities with geocoded map pins
+- **Permit Tracking** — 439K+ building permits across 15+ MA municipalities with geocoded map pins
 - **Municipal Document Scraping** — Automated ingestion of meeting minutes, MEPA filings, CIP documents, and zoning bylaws
 - **Town Dashboards** — Per-municipality views with permit breakdowns, recent activity, and data quality metrics
 - **Address Search** — Geocoded search with Nominatim (OpenStreetMap) integration
